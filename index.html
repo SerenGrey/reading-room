@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Reading Room">
+<title>The Reading Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f4f9f4; --surface:#fff; --border:#c8e0c8; --border2:#d8ead8;
+  --text:#2d4a2d; --text2:#4a6a4a; --muted:#7a9a7a; --faint:#9ab89a;
+  --accent:#3a7d44; --accent-bg:#e8f5e8;
+  --next:#7a3a8a; --next-bg:#f4edf7; --next-border:#d4b8e0;
+  --sb:env(safe-area-inset-bottom,0px); --st:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);overflow:hidden}
+input,select,textarea{font-family:'Inter',sans-serif;font-size:16px;color:var(--text)}
+input::placeholder{color:var(--faint)}
+button{font-family:'Inter',sans-serif}
+select option{background:#fff}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+#app{display:flex;flex-direction:column;height:100%}
+
+/* Header */
+#hdr{background:var(--surface);border-bottom:1px solid var(--border2);padding:12px 16px 0;padding-top:calc(12px + var(--st));flex-shrink:0;box-shadow:0 2px 8px #2d4a2d0a}
+#hdr-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px}
+#hdr h1{font-family:'Lora',Georgia,serif;font-size:21px;font-weight:700;color:#1e3a1e}
+#hdr-stats{font-size:11px;color:var(--faint);margin-top:3px;line-height:1.7}
+#sync-status{font-size:11px;margin-top:1px;transition:color .3s;min-height:14px}
+#add-btn{background:var(--accent);color:#fff;border:none;border-radius:20px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:2px}
+
+/* Tabs */
+#tabs{display:flex;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 12px;font-size:13px;font-weight:400;color:var(--muted);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:color .15s}
+.tab.on{color:#1e3a1e;font-weight:600;border-bottom-color:var(--accent)}
+.tab-n{background:#f0f7f0;color:var(--faint);font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600}
+.tab.on .tab-n{background:var(--accent-bg);color:var(--accent)}
+.tab.next-tab.on{border-bottom-color:var(--next)}
+.tab.next-tab.on .tab-n{background:var(--next-bg);color:var(--next)}
+
+/* Search + filters */
+#search-bar{background:var(--surface);border-bottom:1px solid #eef6ee;padding:9px 16px;flex-shrink:0}
+#search-bar input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:7px 14px;font-size:14px;outline:none}
+#filter-row{background:var(--surface);border-bottom:1px solid #eef6ee;padding:0 16px 9px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+#filter-row::-webkit-scrollbar{display:none}
+#filter-row select{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:5px 10px;font-size:12px;color:var(--text2);outline:none;white-space:nowrap;flex-shrink:0;cursor:pointer}
+
+/* Main */
+#main{flex:1;overflow-y:auto;padding:14px 14px 20px;-webkit-overflow-scrolling:touch}
+#card-grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:600px){#card-grid{grid-template-columns:1fr 1fr}}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 14px 12px;cursor:pointer;position:relative;overflow:hidden;transition:box-shadow .18s;-webkit-user-select:none;user-select:none}
+.card:active{box-shadow:0 4px 16px #2d4a2d18}
+.card.next-card{border-color:var(--next-border);background:linear-gradient(135deg,#fff 85%,#f9f2fc)}
+.spine{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:12px 0 0 12px;opacity:.75}
+.ci{margin-left:10px}
+.ctop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px}
+.cmeta{flex:1;min-width:0}
+.cbadges{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.ctitle{font-family:'Lora',Georgia,serif;font-size:15px;font-weight:700;color:#1e3a1e;line-height:1.3;margin-bottom:2px}
+.cauthor{font-size:12px;color:var(--muted)}
+.cauthor span{color:#3a6a3a;font-weight:500}
+.csummary{font-size:13px;color:var(--text2);line-height:1.55;margin:7px 0 8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ctags,.cchips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+.cbot{display:flex;justify-content:space-between;align-items:center}
+.cwc{font-size:12px;color:var(--faint)}
+
+/* Badges */
+.rb{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.8px;font-family:monospace}
+.cb{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent)}
+.next-badge{font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--next);background:var(--next-bg);padding:2px 6px;border-radius:4px;border:1px solid var(--next-border)}
+.tag{background:#eef6ee;color:#4a7a4a;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--border);white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
+.tag:hover,.tag:active{background:#d8edda;border-color:#8aba8a}
+.ptag{background:#e8eef8;color:#3a5a8a;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid #c0d0e8;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
+.ptag:hover,.ptag:active{background:#d0ddf5;border-color:#8aaad8}
+.schip{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.schip-sm{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;white-space:nowrap}
+.ssel{border-radius:20px;font-size:11px;font-weight:600;padding:3px 8px;outline:none;cursor:pointer;border-width:1px;border-style:solid;-webkit-appearance:none;appearance:none}
+
+/* Stars */
+.stars{display:flex;gap:2px}
+.star{font-size:16px;cursor:pointer;-webkit-user-select:none;user-select:none;transition:color .1s}
+.star.f{color:#d4852a}.star.e{color:#d0e4d0}.star.sm{font-size:14px}
+
+/* Preset tags grid */
+.ptag-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ptag-btn{font-size:12px;padding:4px 10px;border-radius:20px;cursor:pointer;border:1px solid #c0d0e8;background:#f0f4fb;color:#3a5a8a;font-weight:400;transition:all .15s;font-family:'Inter',sans-serif}
+.ptag-btn.on{background:#3a5a8a;color:#fff;border-color:#3a5a8a;font-weight:600}
+
+/* Empty */
+.empty{text-align:center;color:var(--faint);padding:60px 20px;font-size:15px;line-height:1.6}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:#2d4a2d55;z-index:100;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:600px){.overlay{align-items:center}}
+.sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:20px 18px;padding-bottom:calc(20px + var(--sb));-webkit-overflow-scrolling:touch;box-shadow:0 -8px 40px #2d4a2d22}
+@media(min-width:600px){.sheet{border-radius:16px;max-width:580px;max-height:88vh;padding-bottom:20px}}
+.handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.mtitle{font-family:'Lora',Georgia,serif;font-size:19px;font-weight:700;color:#1e3a1e;margin-bottom:16px}
+
+/* Form */
+.field{margin-bottom:13px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.7px;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;outline:none;resize:vertical;color:var(--text);font-size:16px}
+.field textarea{min-height:80px}
+.gr{display:grid;gap:10px}
+.gr2{grid-template-columns:1fr 1fr}
+.gr3{grid-template-columns:1fr 1fr 1fr}
+.gr4{grid-template-columns:1fr 1fr 1fr 1fr}
+@media(max-width:400px){.gr4{grid-template-columns:1fr 1fr}.gr3{grid-template-columns:1fr 1fr}}
+
+/* Buttons */
+.bp{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:15px;font-weight:600;cursor:pointer}
+.bs{background:var(--surface);color:var(--text2);border:1px solid var(--border);border-radius:10px;padding:11px 16px;font-size:15px;cursor:pointer}
+.bd{background:var(--surface);color:#b06070;border:1px solid #e8c0c8;border-radius:10px;padding:11px 16px;font-size:15px;cursor:pointer}
+.brow{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+/* Shelf tiles */
+.stile{border-radius:12px;padding:12px 14px;cursor:pointer;min-width:130px;border-width:1px;border-style:solid;position:relative;transition:box-shadow .18s}
+.stile:active{box-shadow:0 4px 14px #2d4a2d18}
+.stile-em{font-size:20px;margin-bottom:4px}
+.stile-nm{font-size:14px;font-weight:600}
+.stile-desc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+.stile-cnt{font-size:11px;color:var(--faint);margin-top:6px}
+.stile-acts{display:flex;gap:10px;margin-top:6px}
+.stile-acts span{font-size:11px;cursor:pointer}
+.sec-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
+.tiles{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+
+/* Detail */
+.dtitle{font-family:'Lora',Georgia,serif;font-size:20px;font-weight:700;color:#1e3a1e;margin:6px 0 3px;line-height:1.3}
+.dauth{font-size:14px;color:var(--muted);margin-bottom:12px}
+.dsum{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:12px}
+.dstats{display:flex;gap:16px;font-size:13px;color:var(--faint);margin-bottom:12px;flex-wrap:wrap}
+.dnotes{background:var(--bg);border-left:3px solid var(--accent);padding:9px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
+.dnlbl{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px}
+.dntxt{font-size:13px;color:#3a5a3a}
+
+/* Import */
+.iprev{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:14px}
+.ierr{color:#b06070;font-size:13px;padding:9px 12px;background:#fef0f2;border-radius:8px;border:1px solid #f0c8d0;margin:10px 0}
+.iok{color:#3a7d44;font-size:13px;padding:9px 12px;background:#e8f5e8;border-radius:8px;border:1px solid #b8d8b8;margin:10px 0}
+
+/* Shelf selector */
+.sschips{display:flex;flex-wrap:wrap;gap:6px}
+.sschip{font-size:12px;padding:4px 12px;border-radius:20px;cursor:pointer;border-width:1px;border-style:solid;font-weight:400;transition:all .15s}
+.sschip.on{font-weight:600}
+
+/* Next-up section banner */
+.next-banner{background:var(--next-bg);border:1px solid var(--next-border);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.next-banner-icon{font-size:18px}
+.next-banner-text{font-size:13px;color:var(--next);font-weight:600}
+.next-banner-sub{font-size:11px;color:#9a7aaa;margin-top:1px}
+
+/* Stats page */
+.stats-page{padding:16px 14px 40px}
+.stat-section{margin-bottom:28px}
+.stat-section-title{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:0}
+@media(min-width:500px){.stat-cards{grid-template-columns:repeat(4,1fr)}}
+.stat-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 14px 12px;text-align:center}
+.stat-card-val{font-family:'Lora',Georgia,serif;font-size:22px;font-weight:700;color:#1e3a1e;line-height:1.1;margin-bottom:4px}
+.stat-card-lbl{font-size:11px;color:var(--muted)}
+.stat-card-sub{font-size:11px;color:var(--faint);margin-top:2px}
+.chart-wrap{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px;margin-bottom:10px}
+.chart-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-label{font-size:12px;color:var(--text2);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.bar-label:hover{color:var(--accent);text-decoration:underline;text-decoration-style:dotted}
+.bar-track{flex:1;background:#eef6ee;border-radius:20px;height:14px;overflow:hidden}
+.bar-fill{height:100%;border-radius:20px;transition:width .4s ease}
+.bar-count{font-size:11px;color:var(--muted);width:32px;text-align:right;flex-shrink:0}
+.pie-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pie-legend{display:flex;flex-direction:column;gap:5px}
+.pie-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer}
+.pie-legend-item:hover{color:var(--accent)}
+.pie-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.stat-empty{color:var(--faint);font-size:13px;font-style:italic}
+.timeline-wrap{overflow-x:auto;padding-bottom:4px}
+.insight-box{background:var(--accent-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.insight-box strong{color:#1e3a1e}
+@keyframes fup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fup{animation:fup .22s ease both}
+a{color:#3a7a8a;text-decoration:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <div id="hdr-top">
+      <div><h1>The Reading Room</h1><div id="hdr-stats">Loading…</div><div id="sync-status"></div></div>
+      <button id="add-btn">+ Add</button>
+    </div>
+    <div id="tabs"></div>
+  </div>
+  <div id="search-bar"><input type="search" id="search-input" placeholder="Search titles, authors, tags…"></div>
+  <div id="filter-row">
+    <select id="filter-fandom"><option value="All">All Fandoms</option></select>
+    <select id="filter-rating"><option value="All">All Ratings</option><option>G</option><option>T</option><option>M</option><option>E</option></select>
+    <select id="sort-by">
+      <option value="dateAdded">Recently Added</option>
+      <option value="title">Title A–Z</option>
+      <option value="myRating">My Rating</option>
+      <option value="wordCount">Word Count</option>
+    </select>
+  </div>
+  <div id="main"></div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const RCOL={G:"#5a8f5a",T:"#3a7a8a",M:"#b06070",E:"#a0522d"};
+const RBG={G:"#ddf0dd",T:"#d6eff4",M:"#f5dde2",E:"#f5e0d5"};
+const STCOL={ship:"#8a5aa0",mood:"#3a7a8a",theme:"#b06050",fandom:"#5a8f5a",custom:"#7a7a8a"};
+const STBG={ship:"#f2ebf7",mood:"#e5f4f7",theme:"#f9ebe8",fandom:"#e8f5e8",custom:"#f0f0f5"};
+const SCOLORS={Unread:"#7a8f7a",Reading:"#3a7a8a",Read:"#3a7d44","On Hold":"#9a7a3a",Dropped:"#a05060","Up Next":"#7a3a8a"};
+const SBGS={Unread:"#f0f5f0",Reading:"#e5f4f7",Read:"#e8f5e8","On Hold":"#f7f2e5",Dropped:"#f7e8ea","Up Next":"#f4edf7"};
+const SHELF_TYPES=["ship","mood","theme","fandom","custom"];
+const STATUSES=["Unread","Up Next","Reading","Read","On Hold","Dropped"];
+
+// Pre-set fandoms (user can still type custom)
+const PRESET_FANDOMS=["Harry Potter","Buffy the Vampire Slayer"];
+
+// Pre-set ships
+const PRESET_SHIPS=["Harry/Ginny","Ron/Hermione","Lily/James","Buffy/Spike"];
+
+// Pre-set tags
+const PRESET_TAGS=["Pre-Series","PS","CoS","PoA","GoF","OotP","HBP","DH","Post-DH","Post-HBP","Post-OotP","Marauders Era","AU","AU All Human","Quick Read","Mid-Length","Long Read","Extra Long Read","Old Classic"];
+
+const SAMPLE=[{id:"s0",title:"Somewhere to Land",fandom:"Harry Potter",author:"amywrites",rating:"M",
+  summary:"Five years after the war, Ginny discovers Harry living in a small Missouri town, running a racing school with his American friend Ben. He left for reasons she never fully understood — but being here might force them both to face what they've been avoiding.",
+  tags:["Harry/Ginny","Post-War","Hurt/Comfort","Slow Burn"],presetTags:["Post-DH","Long Read"],
+  wordCount:85000,chapters:17,complete:false,url:"",status:"Reading",
+  myRating:5,dateAdded:new Date().toISOString(),notes:"My own WIP — currently revising!",shelfIds:[]}];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let stories=[],shelves=[],view="library",activeShelf=null;
+let filterFandom="All",filterRating="All",sortBy="dateAdded",searchQ="";
+let _shelfIds=[],_importResult=null,_presetTags=[];
+
+// ── GitHub sync config ─────────────────────────────────────────────────────
+const GH_USER="SerenGrey";
+const GH_REPO="reading-room-data";
+const GH_FILE="catalogue.json";
+const GH_API=`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
+
+let GH_TOKEN=localStorage.getItem("rr-gh-token")||"";
+let _ghSha=null;
+let _syncTimeout=null;
+let _syncStatus="idle";
+
+function setSyncStatus(s,msg){
+  _syncStatus=s;
+  const el=document.getElementById("sync-status");
+  if(!el)return;
+  const states={
+    idle:   {text:"",col:"var(--faint)"},
+    loading:{text:"Loading…",col:"var(--faint)"},
+    syncing:{text:"Saving…",col:"#c97d2e"},
+    saved:  {text:"✓ Saved to cloud",col:"#3a7d44"},
+    error:  {text:"⚠ "+(msg||"Sync error"),col:"#b06070"},
+  };
+  const st=states[s]||states.idle;
+  el.textContent=st.text;el.style.color=st.col;
+}
+
+function showTokenSetup(){
+  modal(`<div class="mtitle">Welcome to The Reading Room</div>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">To sync your catalogue across devices, enter your GitHub Personal Access Token. This is stored privately in your browser and never shared.</p>
+  <div class="field"><label>GitHub Personal Access Token</label>
+    <input id="token-input" type="password" placeholder="ghp_…" style="font-family:monospace;font-size:14px">
+  </div>
+  <div id="token-err"></div>
+  <div class="brow">
+    <button class="bp" onclick="saveToken()">Connect</button>
+  </div>
+  <p style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.5">Your token is stored only in this browser's local storage. It is never embedded in the app or visible to anyone else.</p>`);
+}
+
+async function saveToken(){
+  const t=(document.getElementById("token-input")?.value||"").trim();
+  if(!t){document.getElementById("token-err").innerHTML='<div class="ierr">Please enter your token.</div>';return;}
+  const btn=document.querySelector(".sheet .bp");btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
+  // Verify token works
+  try{
+    const resp=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}`,{headers:{Authorization:`token ${t}`}});
+    if(!resp.ok)throw new Error("Invalid");
+    GH_TOKEN=t;
+    localStorage.setItem("rr-gh-token",t);
+    closeM();
+    load();
+  }catch{
+    document.getElementById("token-err").innerHTML='<div class="ierr">Token not accepted — make sure it has repo access and try again.</div>';
+    btn.innerHTML="Connect";btn.disabled=false;
+  }
+}
+
+async function ghGet(){
+  const resp=await fetch(GH_API,{headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
+  if(resp.status===404)return null;
+  if(!resp.ok)throw new Error("GitHub read failed: "+resp.status);
+  const data=await resp.json();
+  _ghSha=data.sha;
+  return JSON.parse(atob(data.content.replace(/\n/g,"")));
+}
+
+async function ghPut(payload){
+  const body={message:"Update catalogue",content:btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))))};
+  if(_ghSha)body.sha=_ghSha;
+  const resp=await fetch(GH_API,{method:"PUT",headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json","Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!resp.ok)throw new Error("GitHub write failed: "+resp.status);
+  const data=await resp.json();
+  _ghSha=data.content.sha;
+}
+
+async function load(){
+  if(!GH_TOKEN){showTokenSetup();return;}
+  setSyncStatus("loading");
+  // First paint from localStorage so app feels instant
+  try{
+    const s=localStorage.getItem("rr-stories");
+    const h=localStorage.getItem("rr-shelves");
+    if(s){stories=JSON.parse(s);shelves=h?JSON.parse(h):[];}
+    else{stories=JSON.parse(JSON.stringify(SAMPLE));shelves=[];}
+  }catch{stories=JSON.parse(JSON.stringify(SAMPLE));shelves=[];}
+  render();
+  // Then fetch from GitHub and update
+  try{
+    const remote=await ghGet();
+    if(remote){
+      stories=remote.stories||[];
+      shelves=remote.shelves||[];
+      localStorage.setItem("rr-stories",JSON.stringify(stories));
+      localStorage.setItem("rr-shelves",JSON.stringify(shelves));
+      render();
+    }
+    setSyncStatus("saved");
+    setTimeout(()=>setSyncStatus("idle"),3000);
+  }catch(e){
+    setSyncStatus("error","Couldn't reach GitHub");
+  }
+}
+
+function save(){
+  try{localStorage.setItem("rr-stories",JSON.stringify(stories));localStorage.setItem("rr-shelves",JSON.stringify(shelves));}catch(e){}
+  setSyncStatus("syncing");
+  clearTimeout(_syncTimeout);
+  _syncTimeout=setTimeout(async()=>{
+    try{
+      await ghPut({stories,shelves});
+      setSyncStatus("saved");
+      setTimeout(()=>setSyncStatus("idle"),3000);
+    }catch(e){
+      setSyncStatus("error","Couldn't save to GitHub");
+    }
+  },1500);
+}
+const fmt=n=>n?Number(n).toLocaleString():"—";
+const fmtDate=d=>{if(!d)return"";const [y,m,day]=d.split("-");const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return`${day} ${months[parseInt(m)-1]} ${y}`;};
+const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+// ── HTML helpers ───────────────────────────────────────────────────────────
+const rb=(r,clickable=true)=>{
+  const bg=RBG[r]||"#eee",col=RCOL[r]||"#666";
+  return clickable
+    ?`<span class="rb" style="background:${bg};color:${col};cursor:pointer" onclick="filterByRating(event,'${r}')">${r}</span>`
+    :`<span class="rb" style="background:${bg};color:${col}">${r}</span>`;
+};
+const tagH=(t,clickable=true)=>clickable?`<span class="tag" onclick="filterByTag(event,'${esc(t)}')">${esc(t)}</span>`:`<span class="tag">${esc(t)}</span>`;
+const ptagH=(t,clickable=true)=>clickable?`<span class="ptag" onclick="filterByTag(event,'${esc(t)}')">${esc(t)}</span>`:`<span class="ptag">${esc(t)}</span>`;
+const schipH=(sh,sm)=>{const c=STCOL[sh.type]||STCOL.custom,b=STBG[sh.type]||STBG.custom;return`<span class="${sm?"schip-sm":"schip"}" style="background:${b};border:1px solid ${c}44;color:${c}">${sh.emoji?esc(sh.emoji)+" ":""}${esc(sh.name)}</span>`;};
+const starsH=(val,sm,id,field)=>{
+  let h=`<div class="stars"${id?` data-id="${id}" data-field="${field||"myRating"}" onclick="starClick(event)"`:""}">`;
+  for(let i=1;i<=5;i++)h+=`<span class="star${sm?" sm":""} ${i<=val?"f":"e"}" data-v="${i}">★</span>`;
+  return h+"</div>";
+};
+const sselH=(val,id)=>{
+  const c=SCOLORS[val]||SCOLORS.Unread,b=SBGS[val]||SBGS.Unread;
+  let h=`<select class="ssel" style="background:${b};border-color:${c}44;color:${c}" data-id="${id}" onchange="changeStatus(this)" onclick="event.stopPropagation()">`;
+  STATUSES.forEach(s=>h+=`<option${s===val?" selected":""}>${s}</option>`);
+  return h+"</select>";
+};
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function renderHeader(){
+  const total=stories.length;
+  const readStories=stories.filter(s=>s.status==="Read");
+  const tbrStories=stories.filter(s=>["Unread","Up Next","On Hold"].includes(s.status));
+  const readingStories=stories.filter(s=>s.status==="Reading");
+  const nextStories=stories.filter(s=>s.status==="Up Next");
+  const wordsTotal=stories.reduce((a,s)=>a+(s.wordCount||0),0);
+  const wordsRead=readStories.reduce((a,s)=>a+(s.wordCount||0),0);
+  const wordsTBR=tbrStories.reduce((a,s)=>a+(s.wordCount||0),0);
+
+  document.getElementById("hdr-stats").innerHTML=
+    `${total} stories · <span style="color:#3a7d44">${fmt(wordsRead)} read</span> · <span style="color:#3a7a8a">${fmt(wordsTBR)} TBR</span> · <span style="color:var(--faint)">${fmt(wordsTotal)} total</span>`;
+
+  const TABS=[
+    {id:"library",label:"Library",n:total},
+    {id:"reading",label:"Reading",n:readingStories.length,cls:""},
+    {id:"next",label:"Up Next",n:nextStories.length,cls:"next-tab"},
+    {id:"tbr",label:"TBR",n:tbrStories.length},
+    {id:"read",label:"Read",n:readStories.length},
+    {id:"shelves",label:"Shelves",n:shelves.length},
+    {id:"stats",label:"📊 Stats",n:""},
+  ];
+  document.getElementById("tabs").innerHTML=TABS.map(t=>
+    `<button class="tab${t.id===view?" on":""} ${t.cls||""}" onclick="sw('${t.id}')">${t.label}<span class="tab-n">${t.n}</span></button>`
+  ).join("");
+
+  const show=view!=="shelves"&&view!=="stats";
+  document.getElementById("search-bar").style.display=show?"":"none";
+  document.getElementById("filter-row").style.display=show?"":"none";
+
+  // Fandom filter — presets + any custom ones already in data
+  const usedFandoms=Array.from(new Set(stories.map(s=>s.fandom).filter(Boolean))).sort();
+  const allFandoms=["All",...Array.from(new Set([...PRESET_FANDOMS,...usedFandoms])).sort()];
+  const fd=document.getElementById("filter-fandom");
+  fd.innerHTML=allFandoms.map(f=>`<option value="${esc(f)}"${f===filterFandom?" selected":""}>${f==="All"?"All Fandoms":esc(f)}</option>`).join("");
+}
+
+// ── Main render ────────────────────────────────────────────────────────────
+function render(){
+  renderHeader();
+  const main=document.getElementById("main");
+  if(view==="shelves"){renderShelves(main);return;}
+  if(view==="stats"){renderStats(main);return;}
+
+  const vf=s=>{
+    if(view==="reading") return s.status==="Reading";
+    if(view==="next")    return s.status==="Up Next";
+    if(view==="tbr")     return ["Unread","Up Next","On Hold"].includes(s.status);
+    if(view==="read")    return s.status==="Read";
+    return true;
+  };
+
+  let list=stories.filter(s=>{
+    if(!vf(s))return false;
+    if(filterFandom!=="All"&&s.fandom!==filterFandom)return false;
+    if(filterRating!=="All"&&s.rating!==filterRating)return false;
+    if(searchQ){
+      const q=searchQ.toLowerCase();
+      return(s.title||"").toLowerCase().includes(q)||(s.author||"").toLowerCase().includes(q)||
+        (s.summary||"").toLowerCase().includes(q)||(s.fandom||"").toLowerCase().includes(q)||
+        (s.ship||"").toLowerCase().includes(q)||
+        (s.tags||[]).some(t=>t.toLowerCase().includes(q))||
+        (s.presetTags||[]).some(t=>t.toLowerCase().includes(q));
+    }
+    return true;
+  });
+
+  // On TBR tab, sort Up Next to top first
+  if(view==="tbr"){
+    list.sort((a,b)=>{
+      const aNext=a.status==="Up Next"?0:1,bNext=b.status==="Up Next"?0:1;
+      if(aNext!==bNext)return aNext-bNext;
+      return sortFn(a,b);
+    });
+  } else {
+    list.sort(sortFn);
+  }
+
+  if(!list.length){
+    main.innerHTML=`<div class="empty">${
+      view==="next"?"No stories marked as Up Next.<br><br>Change a story's status to <strong>Up Next</strong> to add it here.":
+      view==="reading"?"Nothing currently in progress.":
+      stories.length===0?"Your catalogue is empty — tap + Add to get started!":
+      "No stories match your filters."
+    }</div>`;
+    return;
+  }
+
+  // On TBR tab, show a little banner if there are Up Next items
+  const nextCount=view==="tbr"?list.filter(s=>s.status==="Up Next").length:0;
+  const banner=nextCount>0?`<div class="next-banner">
+    <div class="next-banner-icon">🔖</div>
+    <div><div class="next-banner-text">Up Next — ${nextCount} ${nextCount===1?"story":"stories"}</div>
+    <div class="next-banner-sub">These are at the top of your list</div></div>
+  </div>`:"";
+
+  main.innerHTML=banner+`<div id="card-grid" class="fup">${list.map(cardH).join("")}</div>`;
+}
+
+function sortFn(a,b){
+  if(sortBy==="dateAdded")return new Date(b.dateAdded)-new Date(a.dateAdded);
+  if(sortBy==="title")return(a.title||"").localeCompare(b.title||"");
+  if(sortBy==="myRating")return(b.myRating||0)-(a.myRating||0);
+  if(sortBy==="wordCount")return(b.wordCount||0)-(a.wordCount||0);
+  return 0;
+}
+
+function cardH(s){
+  const ss=shelves.filter(sh=>(s.shelfIds||[]).includes(sh.id));
+  const isNext=s.status==="Up Next";
+  const tags=(s.tags||[]).slice(0,3).map(tagH).join("")+((s.tags||[]).length>3?tagH(`+${s.tags.length-3}`):"");
+  const ptags=(s.presetTags||[]).slice(0,3).map(ptagH).join("");
+  const chips=ss.slice(0,2).map(sh=>schipH(sh,true)).join("");
+  return`<div class="card${isNext?" next-card":""}" onclick="openStory('${s.id}')">
+  <div class="spine" style="background:${RCOL[s.rating]||"#aaa"}"></div>
+  <div class="ci">
+    <div class="ctop">
+      <div class="cmeta">
+        <div class="cbadges"><span onclick="event.stopPropagation()">${rb(s.rating)}</span>${isNext?'<span class="next-badge">UP NEXT</span>':""}${s.complete?'<span class="cb">COMPLETE</span>':""}${s.seriesName?`<span style="font-size:9px;font-weight:600;color:#7a6a3a;background:#f7f2e0;border:1px solid #e0d5a0;padding:2px 6px;border-radius:4px;letter-spacing:.5px">SERIES</span>`:""}</div>
+        <div class="ctitle">${esc(s.title)}</div>
+        <div class="cauthor">by <span onclick="filterByAuthor(event,'${esc(s.author)}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${esc(s.author)}</span>${s.fandom?" · "+esc(s.fandom):""}</div>
+        ${s.ship?`<div style="margin-top:3px" onclick="event.stopPropagation()"><span onclick="filterByTag(event,'${esc(s.ship)}')" class="ptag" style="background:#fff0f5;color:#9a3a5a;border-color:#e8b0c8;cursor:pointer;transition:background .15s">♥ ${esc(s.ship)}</span></div>`:""}
+      </div>
+      ${sselH(s.status,s.id)}
+    </div>
+    <div class="csummary">${esc(s.summary)}</div>
+    ${tags?`<div class="ctags">${tags}</div>`:""}
+    ${ptags?`<div class="ctags">${ptags}</div>`:""}
+    ${chips?`<div class="cchips">${chips}</div>`:""}
+    <div class="cbot">
+      <span class="cwc">${s.wordCount>0?fmt(s.wordCount)+" words":""}${s.chapters>0?" · "+s.chapters+" ch.":""}${s.dateStart||s.dateEnd?" · "+fmtDate(s.dateStart||"")+(s.dateEnd?"–"+fmtDate(s.dateEnd):"–"):""}</span>
+      ${starsH(s.myRating||0,true,s.id,"myRating")}
+    </div>
+  </div>
+</div>`;
+}
+
+// ── Stats page ─────────────────────────────────────────────────────────────
+function renderStats(main){
+  const read=stories.filter(s=>s.status==="Read");
+  const tbr=stories.filter(s=>["Unread","Up Next","On Hold"].includes(s.status));
+  const reading=stories.filter(s=>s.status==="Reading");
+  const withWords=stories.filter(s=>s.wordCount>0);
+  const readWithWords=read.filter(s=>s.wordCount>0);
+
+  // Word count stats
+  const totalWords=stories.reduce((a,s)=>a+(s.wordCount||0),0);
+  const readWords=read.reduce((a,s)=>a+(s.wordCount||0),0);
+  const tbrWords=tbr.reduce((a,s)=>a+(s.wordCount||0),0);
+  const avgWords=readWithWords.length?Math.round(readWords/readWithWords.length):0;
+  const longest=withWords.length?withWords.reduce((a,b)=>(b.wordCount||0)>(a.wordCount||0)?b:a):null;
+  const shortest=readWithWords.length?readWithWords.reduce((a,b)=>(b.wordCount||0)<(a.wordCount||0)?b:a):null;
+
+  // Date-based stats
+  const withDates=read.filter(s=>s.dateStart&&s.dateEnd);
+  const readingTimes=withDates.map(s=>{
+    const ms=new Date(s.dateEnd)-new Date(s.dateStart);
+    return{story:s,days:Math.max(1,Math.round(ms/86400000))};
+  });
+  const avgDays=readingTimes.length?Math.round(readingTimes.reduce((a,b)=>a+b.days,0)/readingTimes.length):0;
+  const fastest=readingTimes.length?readingTimes.reduce((a,b)=>b.days<a.days?b:a):null;
+  const slowest=readingTimes.length?readingTimes.reduce((a,b)=>b.days>a.days?b:a):null;
+
+  // Reading pace (words/day)
+  const withPace=withDates.filter(s=>s.wordCount>0);
+  const avgPace=withPace.length?Math.round(withPace.reduce((a,s)=>{
+    const days=Math.max(1,Math.round((new Date(s.dateEnd)-new Date(s.dateStart))/86400000));
+    return a+(s.wordCount/days);
+  },0)/withPace.length):0;
+
+  // Frequency counts
+  const countBy=(arr,key)=>{
+    const m={};arr.forEach(s=>{const v=s[key];if(v){m[v]=(m[v]||0)+1;}});
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  };
+  const shipCounts=countBy(stories.filter(s=>s.ship),"ship");
+  const fanCounts=countBy(stories.filter(s=>s.fandom),"fandom");
+  const ratingCounts=countBy(stories,"rating");
+  const statusCounts=countBy(stories,"status");
+  const authorCounts=countBy(stories.filter(s=>s.author),"author").slice(0,8);
+
+  // Preset tag counts
+  const tagMap={};
+  stories.forEach(s=>(s.presetTags||[]).forEach(t=>{tagMap[t]=(tagMap[t]||0)+1;}));
+  const tagCounts=Object.entries(tagMap).sort((a,b)=>b[1]-a[1]);
+
+  // Series vs standalone
+  const seriesCount=stories.filter(s=>s.seriesName).length;
+  const standaloneCount=stories.length-seriesCount;
+
+  // Reading timeline — stories by month read
+  const monthMap={};
+  withDates.forEach(s=>{
+    const d=new Date(s.dateEnd);
+    const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    monthMap[k]=(monthMap[k]||0)+1;
+  });
+  const months=Object.entries(monthMap).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  // Completion rate
+  const dropped=stories.filter(s=>s.status==="Dropped").length;
+  const completionRate=read.length+dropped>0?Math.round(read.length/(read.length+dropped)*100):null;
+
+  // Avg star rating by fandom
+  const fanRatings={};
+  stories.filter(s=>s.fandom&&s.myRating>0).forEach(s=>{
+    if(!fanRatings[s.fandom])fanRatings[s.fandom]={sum:0,n:0};
+    fanRatings[s.fandom].sum+=s.myRating;fanRatings[s.fandom].n++;
+  });
+  const fanAvgRatings=Object.entries(fanRatings).map(([f,v])=>([f,+(v.sum/v.n).toFixed(1)])).sort((a,b)=>b[1]-a[1]);
+
+  // Palette
+  const PAL=["#3a7d44","#3a7a8a","#8a5aa0","#b06050","#c97d2e","#b06070","#5a7a9a","#7a8a3a"];
+  const RCOLS={G:"#5a8f5a",T:"#3a7a8a",M:"#b06070",E:"#a0522d"};
+
+  const bar=(label,count,max,col,onclick)=>`
+    <div class="bar-row">
+      <div class="bar-label" onclick="${onclick||""}" title="${esc(label)}">${esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${max?Math.round(count/max*100):0}%;background:${col}"></div></div>
+      <div class="bar-count">${count}</div>
+    </div>`;
+
+  const pieSlices=(data,cols)=>{
+    const total=data.reduce((a,b)=>a+b[1],0);
+    if(!total)return"";
+    let html=`<div class="pie-wrap"><canvas id="pie-canvas" width="120" height="120"></canvas><div class="pie-legend">`;
+    data.forEach(([label,n],i)=>{
+      const col=cols?cols[label]:(PAL[i%PAL.length]);
+      html+=`<div class="pie-legend-item" onclick="filterByTag(event,'${esc(label)}')"><div class="pie-dot" style="background:${col}"></div>${esc(label)} <span style="color:var(--faint);margin-left:2px">${n}</span></div>`;
+    });
+    html+=`</div></div>`;
+    return{html,data,cols};
+  };
+
+  const noData=(msg)=>`<p class="stat-empty">${msg}</p>`;
+
+  // Build insights
+  let insights=[];
+  if(longest)insights.push(`Your longest catalogued story is <strong>${esc(longest.title)}</strong> at ${fmt(longest.wordCount)} words.`);
+  if(fastest)insights.push(`Your fastest read was <strong>${esc(fastest.story.title)}</strong> — finished in ${fastest.days} ${fastest.days===1?"day":"days"}.`);
+  if(slowest&&slowest.days>fastest?.days)insights.push(`Your slowest read was <strong>${esc(slowest.story.title)}</strong> at ${slowest.days} days.`);
+  if(avgPace>0)insights.push(`You read an average of <strong>${fmt(avgPace)} words per day</strong> based on your date ranges.`);
+  if(completionRate!==null)insights.push(`You finish <strong>${completionRate}%</strong> of stories you start (vs dropped).`);
+  if(shipCounts.length)insights.push(`Your most-read ship is <strong>${esc(shipCounts[0][0])}</strong> with ${shipCounts[0][1]} ${shipCounts[0][1]===1?"story":"stories"}.`);
+  if(authorCounts.length&&authorCounts[0][1]>1)insights.push(`You have the most stories by <strong>${esc(authorCounts[0][0])}</strong> (${authorCounts[0][1]}).`);
+
+  // Rating pie data
+  const ratingPieData=ratingCounts.map(([r,n])=>([r,n]));
+  const statusPieData=statusCounts;
+
+  main.innerHTML=`<div class="stats-page">
+
+    ${insights.length?`<div class="stat-section">
+      <div class="stat-section-title">Highlights</div>
+      ${insights.map(i=>`<div class="insight-box">${i}</div>`).join("")}
+    </div>`:""}
+
+    <div class="stat-section">
+      <div class="stat-section-title">Overview</div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="stat-card-val">${stories.length}</div><div class="stat-card-lbl">Total Stories</div></div>
+        <div class="stat-card"><div class="stat-card-val">${read.length}</div><div class="stat-card-lbl">Read</div></div>
+        <div class="stat-card"><div class="stat-card-val">${tbr.length}</div><div class="stat-card-lbl">TBR</div></div>
+        <div class="stat-card"><div class="stat-card-val">${reading.length}</div><div class="stat-card-lbl">Reading</div></div>
+      </div>
+    </div>
+
+    <div class="stat-section">
+      <div class="stat-section-title">Word Counts</div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="stat-card-val" style="font-size:16px">${fmt(readWords)}</div><div class="stat-card-lbl">Words Read</div></div>
+        <div class="stat-card"><div class="stat-card-val" style="font-size:16px">${fmt(tbrWords)}</div><div class="stat-card-lbl">Words TBR</div></div>
+        <div class="stat-card"><div class="stat-card-val" style="font-size:16px">${fmt(avgWords)}</div><div class="stat-card-lbl">Avg per Story</div></div>
+        <div class="stat-card"><div class="stat-card-val" style="font-size:16px">${fmt(totalWords)}</div><div class="stat-card-lbl">Total</div></div>
+      </div>
+      ${longest?`<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="stat-card" style="text-align:left"><div class="stat-card-lbl" style="margin-bottom:4px">Longest</div><div style="font-size:13px;font-weight:600;color:#1e3a1e">${esc(longest.title)}</div><div class="stat-card-sub">${fmt(longest.wordCount)} words</div></div>
+        ${shortest?`<div class="stat-card" style="text-align:left"><div class="stat-card-lbl" style="margin-bottom:4px">Shortest read</div><div style="font-size:13px;font-weight:600;color:#1e3a1e">${esc(shortest.title)}</div><div class="stat-card-sub">${fmt(shortest.wordCount)} words</div></div>`:""}
+      </div>`:""}
+    </div>
+
+    ${readingTimes.length?`<div class="stat-section">
+      <div class="stat-section-title">Reading Time</div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="stat-card-val">${avgDays}</div><div class="stat-card-lbl">Avg Days per Story</div></div>
+        <div class="stat-card"><div class="stat-card-val">${fastest.days}</div><div class="stat-card-lbl">Fastest (days)</div><div class="stat-card-sub">${esc(fastest.story.title)}</div></div>
+        <div class="stat-card"><div class="stat-card-val">${slowest.days}</div><div class="stat-card-lbl">Slowest (days)</div><div class="stat-card-sub">${esc(slowest.story.title)}</div></div>
+        ${avgPace?`<div class="stat-card"><div class="stat-card-val">${fmt(avgPace)}</div><div class="stat-card-lbl">Words/Day</div></div>`:`<div class="stat-card"><div class="stat-card-val">—</div><div class="stat-card-lbl">Words/Day</div></div>`}
+      </div>
+      ${readingTimes.length>1?`<div class="chart-wrap" style="margin-top:10px">
+        <div class="chart-title">Days to read — by story</div>
+        ${readingTimes.slice(-15).map(({story,days})=>bar(story.title,days,Math.max(...readingTimes.map(r=>r.days)),"#3a7a8a",`filterByAuthor(event,'${esc(story.author)}')`)).join("")}
+      </div>`:""}
+    </div>`:`<div class="stat-section"><div class="stat-section-title">Reading Time</div>${noData("Add date ranges to your read stories to see reading time stats.")}</div>`}
+
+    ${months.length?`<div class="stat-section">
+      <div class="stat-section-title">Reading Timeline</div>
+      <div class="chart-wrap">
+        <div class="chart-title">Stories finished per month</div>
+        <div class="timeline-wrap">
+          ${months.map(([k,n])=>{
+            const [y,m]=k.split("-");
+            const mNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            return bar(`${mNames[parseInt(m)-1]} ${y}`,n,Math.max(...months.map(x=>x[1])),"#c97d2e","");
+          }).join("")}
+        </div>
+      </div>
+    </div>`:""}
+
+    <div class="stat-section">
+      <div class="stat-section-title">Status Breakdown</div>
+      <div class="chart-wrap" id="status-pie-wrap">
+        ${statusPieData.map(([s,n],i)=>bar(s,n,stories.length,PAL[i%PAL.length],"")).join("")}
+      </div>
+    </div>
+
+    ${fanCounts.length?`<div class="stat-section">
+      <div class="stat-section-title">By Fandom</div>
+      <div class="chart-wrap">
+        ${fanCounts.map(([f,n],i)=>bar(f,n,fanCounts[0][1],PAL[i%PAL.length],`filterByTag(event,'${esc(f)}')`)).join("")}
+      </div>
+    </div>`:""}
+
+    ${shipCounts.length?`<div class="stat-section">
+      <div class="stat-section-title">By Ship</div>
+      <div class="chart-wrap">
+        ${shipCounts.map(([s,n],i)=>bar(s,n,shipCounts[0][1],"#9a3a5a",`filterByTag(event,'${esc(s)}')`)).join("")}
+      </div>
+    </div>`:""}
+
+    <div class="stat-section">
+      <div class="stat-section-title">By Rating</div>
+      <div class="chart-wrap">
+        ${ratingCounts.map(([r,n])=>bar(r,n,stories.length,RCOLS[r]||"#aaa","")).join("")}
+      </div>
+    </div>
+
+    ${authorCounts.length?`<div class="stat-section">
+      <div class="stat-section-title">Top Authors</div>
+      <div class="chart-wrap">
+        ${authorCounts.map(([a,n],i)=>bar(a,n,authorCounts[0][1],PAL[i%PAL.length],`filterByAuthor(event,'${esc(a)}')`)).join("")}
+      </div>
+    </div>`:""}
+
+    ${tagCounts.length?`<div class="stat-section">
+      <div class="stat-section-title">Preset Tags</div>
+      <div class="chart-wrap">
+        ${tagCounts.map(([t,n],i)=>bar(t,n,tagCounts[0][1],"#3a5a8a",`filterByTag(event,'${esc(t)}')`)).join("")}
+      </div>
+    </div>`:""}
+
+    ${fanAvgRatings.length>1?`<div class="stat-section">
+      <div class="stat-section-title">Avg Star Rating by Fandom</div>
+      <div class="chart-wrap">
+        ${fanAvgRatings.map(([f,r])=>`
+          <div class="bar-row">
+            <div class="bar-label" onclick="filterByTag(event,'${esc(f)}')" title="${esc(f)}">${esc(f)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.round(r/5*100)}%;background:#d4852a"></div></div>
+            <div class="bar-count" style="width:40px">★ ${r}</div>
+          </div>`).join("")}
+      </div>
+    </div>`:""}
+
+    <div class="stat-section">
+      <div class="stat-section-title">Series vs Standalone</div>
+      <div class="stat-cards" style="grid-template-columns:1fr 1fr">
+        <div class="stat-card"><div class="stat-card-val">${seriesCount}</div><div class="stat-card-lbl">Part of a Series</div></div>
+        <div class="stat-card"><div class="stat-card-val">${standaloneCount}</div><div class="stat-card-lbl">Standalone</div></div>
+      </div>
+    </div>
+
+    ${completionRate!==null?`<div class="stat-section">
+      <div class="stat-section-title">Completion Rate</div>
+      <div class="stat-cards" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="stat-card"><div class="stat-card-val" style="color:#3a7d44">${read.length}</div><div class="stat-card-lbl">Finished</div></div>
+        <div class="stat-card"><div class="stat-card-val" style="color:#a05060">${dropped}</div><div class="stat-card-lbl">Dropped</div></div>
+        <div class="stat-card"><div class="stat-card-val">${completionRate}%</div><div class="stat-card-lbl">Completion Rate</div></div>
+      </div>
+    </div>`:""}
+
+  </div>`;
+}
+
+
+function renderShelves(main){
+  if(activeShelf){
+    const sh=shelves.find(s=>s.id===activeShelf);
+    if(!sh){activeShelf=null;render();return;}
+    const ss=stories.filter(s=>(s.shelfIds||[]).includes(sh.id));
+    main.innerHTML=`<div style="margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <button onclick="activeShelf=null;render()" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0">←</button>
+      ${schipH(sh,false)}
+      <span style="color:var(--faint);font-size:13px">${ss.length} ${ss.length===1?"story":"stories"}</span>
+      <button onclick="editShelf('${sh.id}')" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:12px;color:var(--muted);cursor:pointer">Edit</button>
+    </div>
+    ${sh.description?`<p style="color:var(--text2);font-size:14px;margin-bottom:14px">${esc(sh.description)}</p>`:""}
+    ${ss.length===0?'<p style="color:var(--faint);font-size:14px">No stories on this shelf yet. Edit a story to add it here.</p>':`<div id="card-grid">${ss.map(cardH).join("")}</div>`}`;
+    return;
+  }
+  const grouped=SHELF_TYPES.map(t=>({t,items:shelves.filter(s=>s.type===t)})).filter(g=>g.items.length>0);
+  if(!shelves.length){
+    main.innerHTML=`<div style="margin-bottom:14px;display:flex;justify-content:flex-end"><button class="bs" onclick="newShelf()" style="font-size:13px;padding:7px 14px">+ New Shelf</button></div>
+    <div class="empty">No shelves yet.<br>Organise by ship, mood, theme, fandom — anything.<br><br><span style="color:#b8d8b8">Ideas: Harry/Ginny · Slow Burn · Post-War · Weekend Reads</span></div>`;return;
+  }
+  main.innerHTML=`<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    <span style="color:var(--muted);font-size:13px">${shelves.length} ${shelves.length===1?"shelf":"shelves"}</span>
+    <button class="bs" onclick="newShelf()" style="font-size:13px;padding:7px 14px">+ New Shelf</button>
+  </div>
+  ${grouped.map(g=>`<div class="sec-lbl" style="color:${STCOL[g.t]||STCOL.custom}">${g.t}</div>
+  <div class="tiles">${g.items.map(sh=>{
+    const c=STCOL[sh.type]||STCOL.custom,b=STBG[sh.type]||STBG.custom;
+    const cnt=stories.filter(s=>(s.shelfIds||[]).includes(sh.id)).length;
+    return`<div class="stile" style="background:${b};border-color:${c}33" onclick="activeShelf='${sh.id}';render()">
+      <div class="stile-em">${sh.emoji||"📚"}</div>
+      <div class="stile-nm" style="color:${c}">${esc(sh.name)}</div>
+      ${sh.description?`<div class="stile-desc">${esc(sh.description)}</div>`:""}
+      <div class="stile-cnt">${cnt} ${cnt===1?"story":"stories"}</div>
+      <div class="stile-acts">
+        <span style="color:var(--faint)" onclick="event.stopPropagation();editShelf('${sh.id}')">edit</span>
+        <span style="color:#c08090" onclick="event.stopPropagation();delShelf('${sh.id}')">delete</span>
+      </div>
+    </div>`;}).join("")}</div>`).join("")}`;
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+function sw(v){view=v;activeShelf=null;render();}
+function changeStatus(sel){const s=stories.find(x=>x.id===sel.dataset.id);if(s){s.status=sel.value;save();renderHeader();}}
+function starClick(e){
+  const v=parseInt(e.target.dataset.v);if(!v)return;
+  const el=e.currentTarget;
+  if(el.dataset.id==="__form__"){
+    const cur=parseInt(el.dataset.rating||0);
+    const nv=cur===v?0:v;el.dataset.rating=nv;
+    el.querySelectorAll(".star").forEach((s,i)=>s.className=`star ${i+1<=nv?"f":"e"}`);return;
+  }
+  const s=stories.find(x=>x.id===el.dataset.id);if(!s)return;
+  s[el.dataset.field||"myRating"]=s[el.dataset.field||"myRating"]===v?0:v;save();render();
+}
+
+document.getElementById("search-input").addEventListener("input",e=>{searchQ=e.target.value;render();});
+document.getElementById("filter-fandom").addEventListener("change",e=>{filterFandom=e.target.value;render();});
+document.getElementById("filter-rating").addEventListener("change",e=>{filterRating=e.target.value;render();});
+document.getElementById("sort-by").addEventListener("change",e=>{sortBy=e.target.value;render();});
+document.getElementById("add-btn").addEventListener("click",()=>bigMenu());
+
+// ── Big menu ───────────────────────────────────────────────────────────────
+function bigMenu(){
+  modal(`<div class="mtitle">What would you like to do?</div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button class="bp" style="text-align:left;padding:13px 16px;border-radius:10px" onclick="closeM();addStory()">+ Add story manually</button>
+    <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openImport()">⬇ Import from copied text<br><span style="font-size:12px;font-weight:400;color:var(--faint)">Paste text from AO3 or FanFiction.net</span></button>
+    <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openImportJSON()">📦 Import JSON backup<br><span style="font-size:12px;font-weight:400;color:var(--faint)">Restore from a previous export</span></button>
+    <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openExport()">⬆ Export catalogue<br><span style="font-size:12px;font-weight:400;color:var(--faint)">JSON or CSV backup</span></button>
+    <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();showTokenSetup()">🔑 Update GitHub token<br><span style="font-size:12px;font-weight:400;color:var(--faint)">Change your sync credentials</span></button>
+  </div>
+  <div class="brow"><button class="bs" onclick="closeM()">Cancel</button></div>`);
+}
+
+// ── Story detail ───────────────────────────────────────────────────────────
+function openStory(id){
+  const s=stories.find(x=>x.id===id);if(!s)return;
+  const ss=shelves.filter(sh=>(s.shelfIds||[]).includes(sh.id));
+  const allTags=[...(s.tags||[]).map(t=>tagH(t,true)),...(s.presetTags||[]).map(t=>ptagH(t,true))].join("");
+  modal(`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    ${rb(s.rating)}
+    ${s.status==="Up Next"?'<span class="next-badge">UP NEXT</span>':""}
+    ${s.complete?'<span class="cb">COMPLETE</span>':""}
+  </div>
+  <div class="dtitle">${esc(s.title)}</div>
+  <div class="dauth">by <span onclick="filterByAuthor(event,'${esc(s.author)}')" style="color:#3a6a3a;font-weight:500;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${esc(s.author)}</span>${s.fandom?" · "+esc(s.fandom):""}</div>
+  ${s.ship?`<div style="margin-bottom:12px"><span onclick="filterByTag(event,'${esc(s.ship)}')" class="ptag" style="background:#fff0f5;color:#9a3a5a;border-color:#e8b0c8;cursor:pointer;font-size:13px;padding:3px 10px">♥ ${esc(s.ship)}</span></div>`:""}
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">${sselH(s.status,s.id)}${starsH(s.myRating||0,false,s.id,"myRating")}</div>
+  <div class="dsum">${esc(s.summary)}</div>
+  ${allTags?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${allTags}</div>`:""}
+  ${ss.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${ss.map(sh=>schipH(sh,false)).join("")}</div>`:""}
+  <div class="dstats">
+    ${s.wordCount>0?"📖 "+fmt(s.wordCount)+" words":""}
+    ${s.chapters>0?"📑 "+s.chapters+" chapters":""}
+    ${s.dateStart||s.dateEnd?`📅 ${s.dateStart?fmtDate(s.dateStart):"?"}${s.dateEnd?" → "+fmtDate(s.dateEnd):" → present"}`:""}
+  </div>
+  ${s.notes?`<div class="dnotes"><div class="dnlbl">My Notes</div><div class="dntxt">${esc(s.notes)}</div></div>`:""}
+  ${s.url?`<div style="margin-bottom:8px"><a href="${esc(s.url)}" target="_blank">🔗 Read on source site ↗</a></div>`:""}
+  ${s.seriesName?`<div style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px">Series — ${esc(s.seriesName)}</div>
+    ${(s.seriesLinks||[]).length?`<div style="display:flex;flex-direction:column;gap:4px">
+      ${(s.seriesLinks||[]).map(l=>`<div style="font-size:13px">${l.url?`<a href="${esc(l.url)}" target="_blank" style="color:#3a7a8a">📖 ${esc(l.title)} ↗</a>`:`<span style="color:var(--text2)">📖 ${esc(l.title)}</span>`}</div>`).join("")}
+    </div>`:"<div style=\"font-size:13px;color:var(--faint)\">No other stories linked yet.</div>"}
+  </div>`:""}
+  <div class="brow">
+    <button class="bs" onclick="closeM();editStory('${id}')">Edit</button>
+    <button class="bd" onclick="if(confirm('Remove from catalogue?')){delStory('${id}');closeM();}">Delete</button>
+  </div>`);
+}
+function delStory(id){stories=stories.filter(x=>x.id!==id);save();render();}
+
+// ── Story form ─────────────────────────────────────────────────────────────
+function addStory(pf={}){
+  showStoryForm("Add Story",{title:"",fandom:"",author:"",ship:"",rating:"T",summary:"",tags:"",
+    presetTags:[],wordCount:"",chapters:"",complete:false,url:"",seriesName:"",seriesLinks:[],status:"Unread",
+    myRating:0,notes:"",shelfIds:[],dateStart:"",dateEnd:"",...pf},null);
+}
+function editStory(id){
+  const s=stories.find(x=>x.id===id);if(!s)return;
+  showStoryForm("Edit Story",{...s,ship:s.ship||"",seriesName:s.seriesName||"",seriesLinks:s.seriesLinks||[],
+    dateStart:s.dateStart||"",dateEnd:s.dateEnd||"",
+    tags:(s.tags||[]).join(", "),presetTags:s.presetTags||[],wordCount:s.wordCount||"",chapters:s.chapters||""},id);
+}
+
+function showStoryForm(title,d,editId){
+  _shelfIds=[...(d.shelfIds||[])];
+  _presetTags=[...(d.presetTags||[])];
+
+  // Fandom options: presets + anything already used
+  const usedFandoms=Array.from(new Set(stories.map(s=>s.fandom).filter(Boolean)));
+  const allFandoms=Array.from(new Set([...PRESET_FANDOMS,...usedFandoms])).sort();
+  const fandomOpts=`<option value="">— select or type below —</option>`+allFandoms.map(f=>`<option value="${esc(f)}"${f===d.fandom?" selected":""}>${esc(f)}</option>`).join("")+`<option value="__custom__">Other (type below)…</option>`;
+
+  const sels=shelves.map(sh=>{
+    const c=STCOL[sh.type]||STCOL.custom,b=STBG[sh.type]||STBG.custom,on=_shelfIds.includes(sh.id);
+    return`<span class="sschip${on?" on":""}" style="background:${on?b:"var(--bg)"};border-color:${on?c+"88":"var(--border)"};color:${on?c:"var(--muted)"}" data-sid="${sh.id}" onclick="toggleSChip(this)">${sh.emoji?esc(sh.emoji)+" ":""}${esc(sh.name)}</span>`;
+  }).join("");
+
+  const ptagBtns=PRESET_TAGS.map(t=>{
+    const on=_presetTags.includes(t);
+    return`<button type="button" class="ptag-btn${on?" on":""}" data-pt="${esc(t)}" onclick="togglePTag(this)">${esc(t)}</button>`;
+  }).join("");
+
+  const isCustomFandom=d.fandom&&!allFandoms.includes(d.fandom);
+
+  modal(`<div class="mtitle">${title}</div>
+  <div class="field"><label>Title *</label><input id="ft" value="${esc(d.title)}"></div>
+  <div class="gr gr2">
+    <div class="field"><label>Fandom</label>
+      <select id="ff-sel" onchange="fandomSelChange(this)" style="margin-bottom:6px">
+        ${allFandoms.map(f=>`<option value="${esc(f)}"${f===d.fandom&&!isCustomFandom?" selected":""}>${esc(f)}</option>`).join("")}
+        <option value="__custom__"${isCustomFandom?" selected":""}>Other…</option>
+      </select>
+      <input id="ff" placeholder="Type fandom name" value="${isCustomFandom?esc(d.fandom):""}" style="display:${isCustomFandom?"block":"none"}">
+    </div>
+    <div class="field"><label>Author</label><input id="fa" value="${esc(d.author)}"></div>
+  </div>
+  <div class="field"><label>Ship</label>
+    <select id="fship" style="margin-bottom:6px" onchange="shipSelChange(this)">
+      <option value="">— none / select —</option>
+      ${PRESET_SHIPS.map(s=>`<option value="${esc(s)}"${s===d.ship?" selected":""}>${esc(s)}</option>`).join("")}
+      <option value="__custom__"${d.ship&&!PRESET_SHIPS.includes(d.ship)&&d.ship?" selected":""}>Other…</option>
+    </select>
+    <input id="fship-custom" placeholder="Type ship name" value="${d.ship&&!PRESET_SHIPS.includes(d.ship)?esc(d.ship):""}" style="display:${d.ship&&!PRESET_SHIPS.includes(d.ship)&&d.ship?"block":"none"}">
+  </div>
+  <div class="gr gr4">
+    <div class="field"><label>Rating</label><select id="fr">${["G","T","M","E"].map(r=>`<option${r===d.rating?" selected":""}>${r}</option>`).join("")}</select></div>
+    <div class="field"><label>Status</label><select id="fst">${STATUSES.map(s=>`<option${s===d.status?" selected":""}>${s}</option>`).join("")}</select></div>
+    <div class="field"><label>Words</label><input id="fw" type="number" value="${d.wordCount||""}"></div>
+    <div class="field"><label>Chapters</label><input id="fch" type="number" value="${d.chapters||""}"></div>
+  </div>
+  <div class="field"><label>Summary</label><textarea id="fsum">${esc(d.summary)}</textarea></div>
+  <div class="field"><label>Custom Tags (comma-separated)</label><input id="ftg" value="${esc(Array.isArray(d.tags)?d.tags.join(", "):d.tags||"")}"></div>
+  <div class="field"><label>Preset Tags</label><div class="ptag-grid" id="ptag-grid">${ptagBtns}</div></div>
+  <div class="field"><label>Source URL</label><input id="fu" type="url" value="${esc(d.url)}" placeholder="https://archiveofourown.org/works/…"></div>
+  <div class="field"><label>Series Name</label><input id="fser" type="text" value="${esc(d.seriesName||"")}" placeholder="e.g. The Auror Series"></div>
+  <div class="field">
+    <label>Other Stories in This Series <span style="font-weight:400;text-transform:none;letter-spacing:0">(one per line — Title | URL)</span></label>
+    <textarea id="fserlinks" style="min-height:70px;font-size:14px" placeholder="The Auror Returns | https://archiveofourown.org/works/123&#10;The Final Case | https://archiveofourown.org/works/456">${(d.seriesLinks||[]).map(l=>`${l.title}${l.url?" | "+l.url:""}`).join("\n")}</textarea>
+  </div>
+  <div class="field"><label>Your Notes</label><textarea id="fn" style="min-height:55px">${esc(d.notes||"")}</textarea></div>
+  <div class="gr gr2">
+    <div class="field"><label>Date Started</label><input id="fds" type="date" value="${esc(d.dateStart||"")}"></div>
+    <div class="field"><label>Date Finished</label><input id="fde" type="date" value="${esc(d.dateEnd||"")}"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px">
+    <input type="checkbox" id="fc"${d.complete?" checked":""}>
+    <label for="fc" style="font-size:13px;color:#3a6a3a;cursor:pointer">Story is complete</label>
+  </div>
+  <div class="field"><label>My Rating</label>${starsH(d.myRating||0,false,"__form__","__r__")}</div>
+  ${shelves.length?`<div class="field"><label>Shelves</label><div class="sschips">${sels}</div></div>`:""}
+  <div class="brow">
+    <button class="bp" onclick="saveStoryForm('${editId||""}')">Save</button>
+    <button class="bs" onclick="closeM()">Cancel</button>
+  </div>`);
+
+  const st=document.querySelector(".sheet .stars[data-id='__form__']");
+  if(st)st.dataset.rating=d.myRating||0;
+}
+
+function fandomSelChange(sel){
+  const inp=document.getElementById("ff");
+  if(sel.value==="__custom__"){inp.style.display="block";inp.focus();}
+  else inp.style.display="none";
+}
+
+function shipSelChange(sel){
+  const inp=document.getElementById("fship-custom");
+  if(sel.value==="__custom__"){inp.style.display="block";inp.focus();}
+  else inp.style.display="none";
+}
+
+function toggleSChip(el){
+  const id=el.dataset.sid;
+  const sh=shelves.find(s=>s.id===id);if(!sh)return;
+  const c=STCOL[sh.type]||STCOL.custom,b=STBG[sh.type]||STBG.custom;
+  if(_shelfIds.includes(id)){_shelfIds=_shelfIds.filter(x=>x!==id);el.classList.remove("on");el.style.background="var(--bg)";el.style.borderColor="var(--border)";el.style.color="var(--muted)";el.style.fontWeight="400";}
+  else{_shelfIds.push(id);el.classList.add("on");el.style.background=b;el.style.borderColor=c+"88";el.style.color=c;el.style.fontWeight="600";}
+}
+
+function togglePTag(btn){
+  const t=btn.dataset.pt;
+  if(_presetTags.includes(t)){_presetTags=_presetTags.filter(x=>x!==t);btn.classList.remove("on");}
+  else{_presetTags.push(t);btn.classList.add("on");}
+}
+
+function saveStoryForm(editId){
+  const title=(document.getElementById("ft")?.value||"").trim();if(!title){alert("Title is required.");return;}
+
+  // Fandom: use select value unless "Other" chosen, then use text input
+  const fsel=document.getElementById("ff-sel");
+  const finp=document.getElementById("ff");
+  const fandom=fsel&&fsel.value==="__custom__"?(finp?.value||"").trim():(fsel?.value||"").trim();
+
+  const st=document.querySelector(".sheet .stars[data-id='__form__']");
+  let myRating=0;if(st){st.querySelectorAll(".star").forEach((s,i)=>{if(s.classList.contains("f"))myRating=i+1;});}
+
+  const shipSel=document.getElementById("fship");
+  const shipInp=document.getElementById("fship-custom");
+  const ship=shipSel&&shipSel.value==="__custom__"?(shipInp?.value||"").trim():(shipSel?.value||"").trim();
+
+  const d={title,fandom,author:(document.getElementById("fa")?.value||"").trim(),ship,
+    rating:document.getElementById("fr")?.value||"T",status:document.getElementById("fst")?.value||"Unread",
+    wordCount:parseInt(document.getElementById("fw")?.value)||0,chapters:parseInt(document.getElementById("fch")?.value)||0,
+    summary:(document.getElementById("fsum")?.value||"").trim(),
+    tags:(document.getElementById("ftg")?.value||"").split(",").map(t=>t.trim()).filter(Boolean),
+    presetTags:[..._presetTags],
+    url:(document.getElementById("fu")?.value||"").trim(),
+    notes:(document.getElementById("fn")?.value||"").trim(),
+    complete:document.getElementById("fc")?.checked||false,myRating,shelfIds:[..._shelfIds],
+    dateStart:document.getElementById("fds")?.value||"",
+    dateEnd:document.getElementById("fde")?.value||"",
+    seriesName:(document.getElementById("fser")?.value||"").trim(),
+    seriesLinks:(document.getElementById("fserlinks")?.value||"").split("\n").map(l=>{
+      const parts=l.split("|");const t=(parts[0]||"").trim();const u=(parts[1]||"").trim();
+      return t?{title:t,url:u}:null;
+    }).filter(Boolean)};
+
+  if(editId){const i=stories.findIndex(x=>x.id===editId);if(i>=0)stories[i]={...stories[i],...d};}
+  else stories.unshift({...d,id:"s"+Date.now(),dateAdded:new Date().toISOString()});
+  _shelfIds=[];_presetTags=[];
+  save();closeM();render();
+}
+
+// ── Paste Import ───────────────────────────────────────────────────────────
+function openImport(){
+  modal(`<div class="mtitle">Import from Copied Text</div>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:6px">Go to the story's page on AO3 or FanFiction.net, copy the title, author, summary, tags and any other details, then paste them below.</p>
+  <p style="font-size:12px;color:var(--faint);margin-bottom:12px">You don't need a specific format — just paste whatever you can see on the page.</p>
+  <div class="field"><label>Story URL (optional)</label><input id="iurl" type="url" placeholder="https://archiveofourown.org/works/…"></div>
+  <div class="field"><label>Pasted Text *</label><textarea id="ipaste" style="min-height:140px" placeholder="Paste story info here…&#10;&#10;e.g.&#10;A Long Way From Home&#10;by ScarlettSunrise&#10;Teen And Up Audiences · Harry Potter&#10;Words: 45,231 · Chapters: 12/12 · Complete&#10;Tags: Post-War, Slow Burn, Harry/Ginny&#10;Summary: Six months after the Battle of Hogwarts…"></textarea></div>
+  <div id="ierr"></div>
+  <div id="iprev"></div>
+  <div class="brow"><button class="bp" id="ibtn" onclick="doImport()">Parse & Preview</button><button class="bs" onclick="closeM()">Cancel</button></div>`);
+}
+
+async function doImport(){
+  const paste=(document.getElementById("ipaste")?.value||"").trim();
+  const url=(document.getElementById("iurl")?.value||"").trim();
+  if(!paste){document.getElementById("ierr").innerHTML='<div class="ierr">Please paste some text first.</div>';return;}
+  const btn=document.getElementById("ibtn");btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
+  document.getElementById("ierr").innerHTML="";document.getElementById("iprev").innerHTML="";
+  try{
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
+        system:`You extract fanfiction metadata from pasted text copied from AO3 or FanFiction.net story pages. Return ONLY a valid JSON object (no markdown, no explanation) with these fields:
+- title (string)
+- author (string)
+- fandom (string) — IMPORTANT: map to the closest match from this list if possible: ${PRESET_FANDOMS.join(", ")}. For example "Harry Potter - J. K. Rowling" or "Harry Potter - Rowling" should become "Harry Potter". "Buffy the Vampire Slayer (TV)" or "BtVS" should become "Buffy the Vampire Slayer". Only use a different value if nothing in the list matches.
+- rating: map to one of G, T, M, E. AO3 mappings: "General Audiences"->G, "Teen And Up"->T, "Mature"->M, "Explicit"->E. FFN mappings: K/K+->G, T->T, M->M.
+- summary (string, max 400 chars)
+- wordCount (number or null)
+- chapters (number or null — use the first number if format is "12/15")
+- complete (boolean — true if chapters show equal numbers like "12/12" or text says "Complete")
+Return ONLY valid JSON, nothing else.`,
+        messages:[{role:"user",content:`Extract metadata from this pasted fanfiction page text:\n\n${paste}`}]})});
+    const data=await resp.json();
+    const text=data.content?.find(b=>b.type==="text")?.text||"";
+    const p=JSON.parse(text.replace(/```json|```/g,"").trim());
+    _importResult={...p,url:url||"",status:"Unread",myRating:0,shelfIds:[],presetTags:[],tags:[],dateStart:"",dateEnd:"",dateAdded:new Date().toISOString(),id:"s"+Date.now()};
+    document.getElementById("iprev").innerHTML=`<div class="iprev fup">
+      <div style="display:flex;gap:7px;align-items:center;margin-bottom:5px">${rb(p.rating||"T",false)}${p.complete?'<span class="cb">COMPLETE</span>':""}</div>
+      <div style="font-family:'Lora',serif;font-weight:700;font-size:16px;color:#1e3a1e;margin-bottom:2px">${esc(p.title||"Untitled")}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:7px">by ${esc(p.author||"Unknown")} · ${esc(p.fandom||"Unknown fandom")}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:7px">${esc(p.summary||"")}</div>
+      <div style="font-size:12px;color:var(--faint)">${p.wordCount?fmt(p.wordCount)+" words":""}${p.chapters?" · "+p.chapters+" ch.":""}</div>
+    </div>
+    <p style="font-size:12px;color:var(--faint);margin:8px 0">Not quite right? You can edit the details after adding.</p>
+    <div class="brow"><button class="bp" onclick="confirmImport()">✓ Add to Catalogue</button><button class="bs" onclick="closeM()">Cancel</button></div>`;
+    btn.style.display="none";
+  }catch(e){
+    document.getElementById("ierr").innerHTML='<div class="ierr">Couldn\'t parse that text — try copying more of the page, or add the story manually.</div>';
+    btn.innerHTML="Parse & Preview";btn.disabled=false;
+  }
+}
+function confirmImport(){if(_importResult){stories.unshift(_importResult);save();closeM();render();}}
+
+// ── JSON Import ─────────────────────────────────────────────────────────────
+function openImportJSON(){
+  modal(`<div class="mtitle">Import JSON Backup</div>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:14px">Select a <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:13px">.json</code> file exported from The Reading Room.</p>
+  <div class="field"><label>Choose file</label>
+    <input type="file" id="json-file" accept=".json" style="font-size:14px;padding:8px 0;background:none;border:none;width:100%">
+  </div>
+  <div id="json-err"></div>
+  <div id="json-preview"></div>
+  <div class="brow"><button class="bp" id="json-btn" onclick="doImportJSON()" style="display:none">Restore</button><button class="bs" onclick="closeM()">Cancel</button></div>`);
+
+  document.getElementById("json-file").addEventListener("change",previewJSON);
+}
+
+function previewJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      const s=data.stories||[];const h=data.shelves||[];
+      if(!Array.isArray(s))throw new Error("Invalid format");
+      document.getElementById("json-preview").innerHTML=`<div class="iok">Found ${s.length} ${s.length===1?"story":"stories"} and ${h.length} ${h.length===1?"shelf":"shelves"}.<br><small style="opacity:.8">This will <strong>merge</strong> with your existing data — no stories will be deleted.</small></div>`;
+      document.getElementById("json-btn").style.display="";
+      document.getElementById("json-btn").dataset.json=ev.target.result;
+      document.getElementById("json-err").innerHTML="";
+    }catch{document.getElementById("json-err").innerHTML='<div class="ierr">Couldn\'t read that file — make sure it\'s a Reading Room JSON export.</div>';document.getElementById("json-btn").style.display="none";}
+  };
+  reader.readAsText(file);
+}
+
+function doImportJSON(){
+  const btn=document.getElementById("json-btn");
+  try{
+    const data=JSON.parse(btn.dataset.json);
+    const incoming=data.stories||[];
+    const incomingShelves=data.shelves||[];
+    // Merge: add stories/shelves that don't already exist (by id)
+    const existingIds=new Set(stories.map(s=>s.id));
+    const existingShelfIds=new Set(shelves.map(s=>s.id));
+    let addedS=0,addedH=0;
+    incoming.forEach(s=>{if(!existingIds.has(s.id)){stories.push(s);addedS++;}});
+    incomingShelves.forEach(h=>{if(!existingShelfIds.has(h.id)){shelves.push(h);addedH++;}});
+    save();closeM();render();
+    if(addedS===0&&addedH===0)alert("All stories in this backup are already in your catalogue — nothing new to add.");
+  }catch(e){alert("Something went wrong reading the file.");}
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function openExport(){
+  modal(`<div class="mtitle">Export Catalogue</div>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:14px">Download a backup of your full catalogue including shelves.</p>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button class="bp" style="text-align:left;border-radius:10px;padding:13px 16px" onclick="doJSON()">📦 JSON — Full backup<div style="font-size:11px;font-weight:400;opacity:.8;margin-top:2px">All data including shelves</div></button>
+    <button class="bs" style="text-align:left;border-radius:10px;padding:13px 16px" onclick="doCSV()">📊 CSV — Spreadsheet<div style="font-size:11px;font-weight:400;margin-top:2px">Open in Excel or Numbers</div></button>
+  </div>
+  <div class="brow"><button class="bs" onclick="closeM()">Close</button></div>`);
+}
+function doJSON(){const b=new Blob([JSON.stringify({stories,shelves},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="reading-room-export.json";document.body.appendChild(a);a.click();a.remove();}
+function doCSV(){
+  const sm=Object.fromEntries(shelves.map(s=>[s.id,s.name]));
+  const H=["title","fandom","author","rating","status","wordCount","chapters","complete","myRating","tags","presetTags","shelves","summary","url","notes","dateAdded"];
+  const rows=stories.map(s=>H.map(h=>{let v=s[h];if(h==="tags")v=(v||[]).join("|");if(h==="presetTags")v=(v||[]).join("|");if(h==="shelves")v=(s.shelfIds||[]).map(id=>sm[id]||"").filter(Boolean).join("|");if(h==="complete")v=v?"yes":"no";if(v==null)v="";return`"${String(v).replace(/"/g,'""')}"`;}).join(","));
+  const b=new Blob([[H.join(","),...rows].join("\n")],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="reading-room-export.csv";document.body.appendChild(a);a.click();a.remove();
+}
+
+// ── Shelves CRUD ───────────────────────────────────────────────────────────
+function newShelf(){shelfForm("New Shelf",{name:"",type:"ship",emoji:"",description:""},null);}
+function editShelf(id){const sh=shelves.find(s=>s.id===id);if(sh)shelfForm("Edit Shelf",{...sh},id);}
+function delShelf(id){if(confirm("Delete this shelf? Stories won't be deleted.")){shelves=shelves.filter(s=>s.id!==id);save();if(activeShelf===id)activeShelf=null;render();}}
+
+function shelfForm(title,d,editId){
+  modal(`<div class="mtitle">${title}</div>
+  <div class="gr" style="grid-template-columns:2fr 1fr 60px;gap:10px">
+    <div class="field"><label>Name</label><input id="sn" value="${esc(d.name)}" placeholder="Harry/Ginny"></div>
+    <div class="field"><label>Type</label><select id="st">${SHELF_TYPES.map(t=>`<option${t===d.type?" selected":""}>${t}</option>`).join("")}</select></div>
+    <div class="field"><label>Emoji</label><input id="se" value="${esc(d.emoji||"")}" placeholder="💫" style="text-align:center"></div>
+  </div>
+  <div class="field"><label>Description</label><input id="sd" value="${esc(d.description||"")}" placeholder="Optional"></div>
+  <div class="brow"><button class="bp" onclick="saveShelf('${editId||""}')">Save</button><button class="bs" onclick="closeM()">Cancel</button></div>`);
+}
+function saveShelf(editId){
+  const name=(document.getElementById("sn")?.value||"").trim();if(!name)return;
+  const d={name,type:document.getElementById("st")?.value||"custom",emoji:document.getElementById("se")?.value||"",description:(document.getElementById("sd")?.value||"").trim()};
+  if(editId)shelves=shelves.map(s=>s.id===editId?{...s,...d}:s);
+  else shelves.push({...d,id:"sh"+Date.now()});
+  save();closeM();render();
+}
+
+// ── Modal system ───────────────────────────────────────────────────────────
+let _m=null;
+function modal(html){
+  closeM();
+  _m=document.createElement("div");_m.className="overlay";
+  _m.innerHTML=`<div class="sheet"><div class="handle"></div>${html}</div>`;
+  _m.addEventListener("click",e=>{if(e.target===_m)closeM();});
+  document.body.appendChild(_m);
+}
+function closeM(){if(_m){_m.remove();_m=null;}}
+
+// ── Tag & author filtering ─────────────────────────────────────────────────
+function filterByTag(e,tag){
+  e.stopPropagation();
+  e.preventDefault();
+  closeM();
+  searchQ=tag;
+  view="library";
+  activeShelf=null;
+  document.getElementById("search-input").value=tag;
+  filterFandom="All";
+  document.getElementById("filter-fandom").value="All";
+  render();
+}
+
+function filterByRating(e,rating){
+  e.stopPropagation();
+  e.preventDefault();
+  closeM();
+  view="library";
+  activeShelf=null;
+  searchQ="";
+  document.getElementById("search-input").value="";
+  filterFandom="All";
+  document.getElementById("filter-fandom").value="All";
+  filterRating=rating;
+  document.getElementById("filter-rating").value=rating;
+  render();
+}
+
+function filterByAuthor(e,author){
+  e.preventDefault();
+  closeM();
+  searchQ=author;
+  view="library";
+  activeShelf=null;
+  document.getElementById("search-input").value=author;
+  filterFandom="All";
+  document.getElementById("filter-fandom").value="All";
+  render();
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+load();
+</script>
+</body>
+</html>
