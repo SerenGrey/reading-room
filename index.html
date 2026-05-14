@@ -1125,9 +1125,16 @@ async function doImport(){
 - chapters (number or null — first number if format is "12/15")
 - complete (boolean — true if equal chapter numbers like "12/12" or marked Complete)
 Return ONLY valid JSON.`,
-        messages:[{role:"user",content:userContent}]})});
+        messages:[{role:"user",content:userContent}]})}); 
 
-    const data=await resp.json();
+    const respText=await resp.text();
+    console.log("API response status:",resp.status,"body:",respText);
+    if(!resp.ok){
+      document.getElementById("ierr").innerHTML=`<div class="ierr">API error ${resp.status}: ${respText}</div>`;
+      btn.innerHTML=_importMode==="url"?"Import":"Parse & Preview";btn.disabled=false;
+      return;
+    }
+    const data=JSON.parse(respText);
     const text=data.content?.find(b=>b.type==="text")?.text||"";
     const p=JSON.parse(text.replace(/```json|```/g,"").trim());
     _importResult={...p,url:urlVal||"",status:"Unread",myRating:0,shelfIds:[],presetTags:[],tags:[],dateStart:"",dateEnd:"",dateAdded:new Date().toISOString(),id:"s"+Date.now()};
