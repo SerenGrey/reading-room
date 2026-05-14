@@ -847,7 +847,7 @@ function bigMenu(){
   modal(`<div class="mtitle">What would you like to do?</div>
   <div style="display:flex;flex-direction:column;gap:8px">
     <button class="bp" style="text-align:left;padding:13px 16px;border-radius:10px" onclick="closeM();addStory()">+ Add story manually</button>
-    <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openImport()">⬇ Import a story<br><span style="font-size:12px;font-weight:400;color:var(--faint)">From URL or pasted text</span></button>
+    <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openImport()">⬇ Import a story<br><span style="font-size:12px;font-weight:400;color:var(--faint)">Paste text from AO3 or FanFiction.net</span></button>
     <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openImportJSON()">📦 Import JSON backup<br><span style="font-size:12px;font-weight:400;color:var(--faint)">Restore from a previous export</span></button>
     <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();openExport()">⬆ Export catalogue<br><span style="font-size:12px;font-weight:400;color:var(--faint)">JSON or CSV backup</span></button>
     <button class="bs" style="text-align:left;padding:13px 16px" onclick="closeM();showTokenSetup()">🔑 Update GitHub token<br><span style="font-size:12px;font-weight:400;color:var(--faint)">Change your sync credentials</span></button>
@@ -1048,40 +1048,13 @@ function saveStoryForm(editId){
 // ── Import ─────────────────────────────────────────────────────────────────
 function openImport(){
   modal(`<div class="mtitle">Import a Story</div>
-  <p style="color:var(--text2);font-size:14px;margin-bottom:14px">Import from a URL, or paste text copied from the story's page.</p>
-
-  <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px">
-    <button id="tab-url" onclick="importTab('url')" style="flex:1;padding:9px;border:none;background:var(--accent);color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer">From URL</button>
-    <button id="tab-paste" onclick="importTab('paste')" style="flex:1;padding:9px;border:none;background:var(--bg);color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;cursor:pointer">From Pasted Text</button>
-  </div>
-
-  <div id="import-url-section">
-    <div class="field"><label>AO3 or FanFiction.net URL</label><input id="iurl" type="url" placeholder="https://archiveofourown.org/works/…"></div>
-    <p style="font-size:12px;color:var(--faint);margin-bottom:12px">Claude will extract the story details automatically.</p>
-  </div>
-
-  <div id="import-paste-section" style="display:none">
-    <div class="field"><label>Story URL (optional)</label><input id="iurl-paste" type="url" placeholder="https://archiveofourown.org/works/…"></div>
-    <div class="field"><label>Pasted Text *</label><textarea id="ipaste" style="min-height:120px" placeholder="Paste story info here…&#10;&#10;e.g.&#10;A Long Way From Home&#10;by ScarlettSunrise&#10;Teen And Up Audiences · Harry Potter&#10;Words: 45,231 · Chapters: 12/12 · Complete&#10;Summary: Six months after the Battle of Hogwarts…"></textarea></div>
-  </div>
-
+  <p style="color:var(--text2);font-size:14px;margin-bottom:6px">Go to the story's page on AO3 or FanFiction.net and copy the header section — title, author, rating, summary, word count — then paste it below.</p>
+  <p style="font-size:12px;color:var(--faint);margin-bottom:12px">No specific format needed, just paste whatever you can see on the page.</p>
+  <div class="field"><label>Story URL (optional)</label><input id="iurl-paste" type="url" placeholder="https://archiveofourown.org/works/…"></div>
+  <div class="field"><label>Pasted Text *</label><textarea id="ipaste" style="min-height:130px" placeholder="Paste story info here…&#10;&#10;e.g.&#10;A Long Way From Home&#10;by ScarlettSunrise&#10;Teen And Up Audiences · Harry Potter&#10;Words: 45,231 · Chapters: 12/12 · Complete&#10;Summary: Six months after the Battle of Hogwarts…"></textarea></div>
   <div id="ierr"></div>
   <div id="iprev"></div>
-  <div class="brow"><button class="bp" id="ibtn" onclick="doImport()">Import</button><button class="bs" onclick="closeM()">Cancel</button></div>`);
-}
-
-let _importMode="url";
-function importTab(mode){
-  _importMode=mode;
-  document.getElementById("import-url-section").style.display=mode==="url"?"":"none";
-  document.getElementById("import-paste-section").style.display=mode==="paste"?"":"none";
-  document.getElementById("tab-url").style.background=mode==="url"?"var(--accent)":"var(--bg)";
-  document.getElementById("tab-url").style.color=mode==="url"?"#fff":"var(--muted)";
-  document.getElementById("tab-url").style.fontWeight=mode==="url"?"600":"400";
-  document.getElementById("tab-paste").style.background=mode==="paste"?"var(--accent)":"var(--bg)";
-  document.getElementById("tab-paste").style.color=mode==="paste"?"#fff":"var(--muted)";
-  document.getElementById("tab-paste").style.fontWeight=mode==="paste"?"600":"400";
-  document.getElementById("ibtn").textContent=mode==="url"?"Import":"Parse & Preview";
+  <div class="brow"><button class="bp" id="ibtn" onclick="doImport()">Parse & Preview</button><button class="bs" onclick="closeM()">Cancel</button></div>`);
 }
 
 async function doImport(){
@@ -1089,75 +1062,54 @@ async function doImport(){
     document.getElementById("ierr").innerHTML='<div class="ierr">No Anthropic API key found. Go to + Add → Update GitHub token to add it.</div>';
     return;
   }
-  console.log("API key present, length:",ANTHROPIC_KEY.length);
+  const paste=(document.getElementById("ipaste")?.value||"").trim();
+  const urlVal=(document.getElementById("iurl-paste")?.value||"").trim();
+  if(!paste){document.getElementById("ierr").innerHTML='<div class="ierr">Please paste some text first.</div>';return;}
   const btn=document.getElementById("ibtn");
   btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
   document.getElementById("ierr").innerHTML="";document.getElementById("iprev").innerHTML="";
-
   try{
-    let userContent, urlVal;
-    if(_importMode==="url"){
-      urlVal=(document.getElementById("iurl")?.value||"").trim();
-      if(!urlVal){document.getElementById("ierr").innerHTML='<div class="ierr">Please enter a URL.</div>';btn.innerHTML="Import";btn.disabled=false;return;}
-      userContent=`Extract metadata from this fanfiction URL: ${urlVal}`;
-    } else {
-      const paste=(document.getElementById("ipaste")?.value||"").trim();
-      urlVal=(document.getElementById("iurl-paste")?.value||"").trim();
-      if(!paste){document.getElementById("ierr").innerHTML='<div class="ierr">Please paste some text first.</div>';btn.innerHTML="Parse & Preview";btn.disabled=false;return;}
-      userContent=`Extract metadata from this pasted fanfiction page text:\n\n${paste}`;
-    }
-
     const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "x-api-key":ANTHROPIC_KEY,
-        "anthropic-version":"2023-06-01",
-        "anthropic-dangerous-direct-browser-access":"true"
-      },
+      headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({model:"claude-haiku-4-5",max_tokens:1000,
-        system:`You extract fanfiction metadata. Return ONLY a valid JSON object (no markdown, no explanation) with:
-- title (string)
-- author (string)
-- fandom (string) — map to closest from: ${PRESET_FANDOMS.join(", ")}. e.g. "Harry Potter - J. K. Rowling" -> "Harry Potter", "Buffy the Vampire Slayer (TV)" -> "Buffy the Vampire Slayer". Use a different value only if nothing matches.
-- rating: G, T, M, or E. AO3: "General Audiences"->G, "Teen And Up"->T, "Mature"->M, "Explicit"->E. FFN: K/K+->G, T->T, M->M.
-- summary (string, max 400 chars)
-- wordCount (number or null)
-- chapters (number or null — first number if format is "12/15")
-- complete (boolean — true if equal chapter numbers like "12/12" or marked Complete)
-Return ONLY valid JSON.`,
-        messages:[{role:"user",content:userContent}]})}); 
-
+        system:`You extract fanfiction metadata. Return ONLY a valid JSON object (no markdown) with: title, author, fandom (map to closest from: ${PRESET_FANDOMS.join(", ")} — e.g. "Harry Potter - J. K. Rowling"->"Harry Potter"), rating (G/T/M/E — AO3: General Audiences->G, Teen And Up->T, Mature->M, Explicit->E), summary (max 400 chars), wordCount (number|null), chapters (number|null, first number if "12/15"), complete (boolean). Return ONLY valid JSON.`,
+        messages:[{role:"user",content:`Extract metadata from this pasted fanfiction page text:\n\n${paste}`}]})});
     const respText=await resp.text();
-    console.log("API response status:",resp.status,"body:",respText);
-    if(!resp.ok){
-      document.getElementById("ierr").innerHTML=`<div class="ierr">API error ${resp.status}: ${respText}</div>`;
-      btn.innerHTML=_importMode==="url"?"Import":"Parse & Preview";btn.disabled=false;
-      return;
-    }
+    if(!resp.ok){document.getElementById("ierr").innerHTML=`<div class="ierr">API error ${resp.status}: ${respText}</div>`;btn.innerHTML="Parse & Preview";btn.disabled=false;return;}
     const data=JSON.parse(respText);
     const text=data.content?.find(b=>b.type==="text")?.text||"";
     const p=JSON.parse(text.replace(/```json|```/g,"").trim());
     _importResult={...p,url:urlVal||"",status:"Unread",myRating:0,shelfIds:[],presetTags:[],tags:[],dateStart:"",dateEnd:"",dateAdded:new Date().toISOString(),id:"s"+Date.now()};
-
     document.getElementById("iprev").innerHTML=`<div class="iprev fup">
-      <div style="display:flex;gap:7px;align-items:center;margin-bottom:5px">${rb(p.rating||"T",false)}${p.complete?'<span class="cb">COMPLETE</span>':""}</div>
+      <div style="display:flex;gap:7px;align-items:center;margin-bottom:5px">${rb(p.rating||"T",false)}${p.complete?'<span class="cb">COMPLETE</span>':""}  </div>
       <div style="font-family:'Lora',serif;font-weight:700;font-size:16px;color:#1e3a1e;margin-bottom:2px">${esc(p.title||"Untitled")}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:7px">by ${esc(p.author||"Unknown")} · ${esc(p.fandom||"Unknown fandom")}</div>
       <div style="font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:7px">${esc(p.summary||"")}</div>
       <div style="font-size:12px;color:var(--faint)">${p.wordCount?fmt(p.wordCount)+" words":""}${p.chapters?" · "+p.chapters+" ch.":""}</div>
     </div>
-    <p style="font-size:12px;color:var(--faint);margin:8px 0">Not quite right? You can edit the details after adding.</p>
-    <div class="brow"><button class="bp" onclick="confirmImport()">✓ Add to Catalogue</button><button class="bs" onclick="closeM()">Cancel</button></div>`;
+    <div class="brow">
+      <button class="bp" onclick="confirmImport()">✓ Add to Catalogue</button>
+      <button class="bs" onclick="confirmAndEdit()">✎ Edit then Add</button>
+      <button class="bs" onclick="closeM()">Cancel</button>
+    </div>`;
     btn.style.display="none";
-
   }catch(e){
     console.error("Import error:",e);
-    // Try to get more detail from the response
-    document.getElementById("ierr").innerHTML=`<div class="ierr">Error: ${e.message||"Unknown error"} — check browser console for details.</div>`;
-    btn.innerHTML=_importMode==="url"?"Import":"Parse & Preview";btn.disabled=false;
+    document.getElementById("ierr").innerHTML=`<div class="ierr">Error: ${e.message||"Unknown error"}</div>`;
+    btn.innerHTML="Parse & Preview";btn.disabled=false;
   }
 }
-function confirmImport(){if(_importResult){stories.unshift(_importResult);save();closeM();render();}}
+
+function confirmImport(){
+  if(!_importResult)return;
+  stories.unshift(_importResult);save();closeM();render();
+}
+
+function confirmAndEdit(){
+  if(!_importResult)return;
+  stories.unshift(_importResult);save();closeM();
+  editStory(_importResult.id);
+}
 
 // ── JSON Import ─────────────────────────────────────────────────────────────
 function openImportJSON(){
