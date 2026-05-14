@@ -1089,6 +1089,7 @@ async function doImport(){
     document.getElementById("ierr").innerHTML='<div class="ierr">No Anthropic API key found. Go to + Add → Update GitHub token to add it.</div>';
     return;
   }
+  console.log("API key present, length:",ANTHROPIC_KEY.length);
   const btn=document.getElementById("ibtn");
   btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
   document.getElementById("ierr").innerHTML="";document.getElementById("iprev").innerHTML="";
@@ -1107,7 +1108,12 @@ async function doImport(){
     }
 
     const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":ANTHROPIC_KEY,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
       body:JSON.stringify({model:"claude-3-5-haiku-20241022",max_tokens:1000,
         system:`You extract fanfiction metadata. Return ONLY a valid JSON object (no markdown, no explanation) with:
 - title (string)
@@ -1138,7 +1144,9 @@ Return ONLY valid JSON.`,
     btn.style.display="none";
 
   }catch(e){
-    document.getElementById("ierr").innerHTML='<div class="ierr">Couldn\'t extract details — try the pasted text option, or add manually.</div>';
+    console.error("Import error:",e);
+    // Try to get more detail from the response
+    document.getElementById("ierr").innerHTML=`<div class="ierr">Error: ${e.message||"Unknown error"} — check browser console for details.</div>`;
     btn.innerHTML=_importMode==="url"?"Import":"Parse & Preview";btn.disabled=false;
   }
 }
