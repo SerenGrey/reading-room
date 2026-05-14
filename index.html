@@ -255,6 +255,7 @@ const GH_FILE="catalogue.json";
 const GH_API=`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
 
 let GH_TOKEN=localStorage.getItem("rr-gh-token")||"";
+let ANTHROPIC_KEY=localStorage.getItem("rr-anthropic-key")||"";
 let _ghSha=null;
 let _syncTimeout=null;
 let _syncStatus="idle";
@@ -276,31 +277,35 @@ function setSyncStatus(s,msg){
 
 function showTokenSetup(){
   modal(`<div class="mtitle">Welcome to The Reading Room</div>
-  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">To sync your catalogue across devices, enter your GitHub Personal Access Token. This is stored privately in your browser and never shared.</p>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Enter your credentials below to enable cloud sync and story importing. These are stored privately in your browser and never shared.</p>
   <div class="field"><label>GitHub Personal Access Token</label>
     <input id="token-input" type="password" placeholder="ghp_…" style="font-family:monospace;font-size:14px">
+  </div>
+  <div class="field"><label>Anthropic API Key <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--faint)">(for story importing)</span></label>
+    <input id="anthropic-input" type="password" placeholder="sk-ant-…" style="font-family:monospace;font-size:14px">
   </div>
   <div id="token-err"></div>
   <div class="brow">
     <button class="bp" onclick="saveToken()">Connect</button>
   </div>
-  <p style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.5">Your token is stored only in this browser's local storage. It is never embedded in the app or visible to anyone else.</p>`);
+  <p style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.5">Your keys are stored only in this browser's local storage. They are never embedded in the app or visible to anyone else.</p>`);
 }
 
 async function saveToken(){
   const t=(document.getElementById("token-input")?.value||"").trim();
-  if(!t){document.getElementById("token-err").innerHTML='<div class="ierr">Please enter your token.</div>';return;}
+  const ak=(document.getElementById("anthropic-input")?.value||"").trim();
+  if(!t){document.getElementById("token-err").innerHTML='<div class="ierr">Please enter your GitHub token.</div>';return;}
   const btn=document.querySelector(".sheet .bp");btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
-  // Verify token works
   try{
     const resp=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}`,{headers:{Authorization:`token ${t}`}});
     if(!resp.ok)throw new Error("Invalid");
     GH_TOKEN=t;
     localStorage.setItem("rr-gh-token",t);
+    if(ak){ANTHROPIC_KEY=ak;localStorage.setItem("rr-anthropic-key",ak);}
     closeM();
     load();
   }catch{
-    document.getElementById("token-err").innerHTML='<div class="ierr">Token not accepted — make sure it has repo access and try again.</div>';
+    document.getElementById("token-err").innerHTML='<div class="ierr">GitHub token not accepted — make sure it has repo access and try again.</div>';
     btn.innerHTML="Connect";btn.disabled=false;
   }
 }
@@ -1080,6 +1085,10 @@ function importTab(mode){
 }
 
 async function doImport(){
+  if(!ANTHROPIC_KEY){
+    document.getElementById("ierr").innerHTML='<div class="ierr">No Anthropic API key found. Go to + Add → Update GitHub token to add it.</div>';
+    return;
+  }
   const btn=document.getElementById("ibtn");
   btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
   document.getElementById("ierr").innerHTML="";document.getElementById("iprev").innerHTML="";
@@ -1098,7 +1107,7 @@ async function doImport(){
     }
 
     const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{"Content-Type":"application/json","anthropic-dangerous-direct-browser-access":"true"},
+      headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
         system:`You extract fanfiction metadata. Return ONLY a valid JSON object (no markdown, no explanation) with:
 - title (string)
