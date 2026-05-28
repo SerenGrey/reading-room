@@ -312,29 +312,44 @@ async function saveToken(){
 }
 
 async function ghGet(){
-  console.log("ghGet: token length="+GH_TOKEN.length);
-  const resp=await fetch(GH_API,{headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
-  console.log("ghGet: status="+resp.status);
-  if(resp.status===404)return null;
-  if(!resp.ok){const t=await resp.text();console.error("ghGet failed:",t);throw new Error("GitHub read failed: "+resp.status);}
-  const data=await resp.json();
-  _ghSha=data.sha;
-  console.log("ghGet: content length="+data.content?.length+" truncated="+data.truncated);
-  if(data.truncated){throw new Error("File too large for GitHub Contents API — needs migration");}
-  const b64=data.content.replace(/\n/g,"");
-  const binary=atob(b64);
-  const bytes=new Uint8Array(binary.length);
-  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-  const decoded=new TextDecoder("utf-8").decode(bytes);
-  return JSON.parse(decoded);
+  console.log("ghGet via Git Data API, token length="+GH_TOKEN.length);
+  // Step 1: get the file's blob SHA from the tree
+  const refResp=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/git/ref/heads/main`,
+    {headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
+  if(refResp.status===404)return null;
+  if(!refResp.ok)throw new Error("GitHub ref failed: "+refResp.status);
+  const ref=await refResp.json();
+  const treeSha=ref.object.sha;
+
+  // Step 2: get the tree to find catalogue.json blob SHA
+  const treeResp=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/git/trees/${treeSha}`,
+    {headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
+  if(!treeResp.ok)throw new Error("GitHub tree failed: "+treeResp.status);
+  const tree=await treeResp.json();
+  const fileNode=tree.tree.find(f=>f.path===GH_FILE);
+  if(!fileNode)return null;
+  _ghSha=fileNode.sha;
+  console.log("ghGet: blob sha="+_ghSha);
+
+  // Step 3: fetch the blob — use raw media type which returns content directly, no size limit
+  const blobResp=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/git/blobs/${_ghSha}`,
+    {headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.raw+json"}});
+  if(!blobResp.ok)throw new Error("GitHub blob failed: "+blobResp.status);
+  const text=await blobResp.text();
+  console.log("ghGet: blob text length="+text.length);
+  return JSON.parse(text);
 }
 
 async function ghPut(payload){
-  console.log("ghPut: sha="+_ghSha+" token length="+GH_TOKEN.length);
-  // Use compact JSON (no pretty-print) to keep file size down
+  console.log("ghPut: token length="+GH_TOKEN.length);
+  // For writes we still need the file SHA from contents API
+  const metaResp=await fetch(GH_API,{headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
+  let fileSha=null;
+  if(metaResp.ok){const meta=await metaResp.json();fileSha=meta.sha;}
+  console.log("ghPut: fileSha="+fileSha);
   const json=JSON.stringify(payload);
   const body={message:"Update catalogue",content:btoa(unescape(encodeURIComponent(json)))};
-  if(_ghSha)body.sha=_ghSha;
+  if(fileSha)body.sha=fileSha;
   const resp=await fetch(GH_API,{method:"PUT",headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json","Content-Type":"application/json"},body:JSON.stringify(body)});
   console.log("ghPut: status="+resp.status);
   if(!resp.ok){const t=await resp.text();console.error("ghPut failed:",t);throw new Error("GitHub write failed: "+resp.status+" "+t);}
