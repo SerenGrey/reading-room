@@ -253,6 +253,7 @@ const GH_USER="SerenGrey";
 const GH_REPO="reading-room-data";
 const GH_FILE="catalogue.json";
 const GH_API=`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
+const GH_RAW=`https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/main/${GH_FILE}`;
 
 let GH_TOKEN=localStorage.getItem("rr-gh-token")||"";
 let ANTHROPIC_KEY=localStorage.getItem("rr-anthropic-key")||"";
@@ -311,14 +312,20 @@ async function saveToken(){
 }
 
 async function ghGet(){
-  console.log("ghGet: token length="+GH_TOKEN.length+" url="+GH_API);
-  const resp=await fetch(GH_API,{headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
-  console.log("ghGet: status="+resp.status);
-  if(resp.status===404)return null;
-  if(!resp.ok){const t=await resp.text();console.error("ghGet failed:",t);throw new Error("GitHub read failed: "+resp.status+" "+t);}
-  const data=await resp.json();
-  _ghSha=data.sha;
-  return JSON.parse(atob(data.content.replace(/\n/g,"")));
+  console.log("ghGet: fetching raw content, token length="+GH_TOKEN.length);
+  // Get SHA via contents API (small response)
+  const metaResp=await fetch(GH_API,{headers:{Authorization:`token ${GH_TOKEN}`,Accept:"application/vnd.github.v3+json"}});
+  console.log("ghGet meta status="+metaResp.status);
+  if(metaResp.status===404)return null;
+  if(!metaResp.ok){const t=await metaResp.text();console.error("ghGet meta failed:",t);throw new Error("GitHub read failed: "+metaResp.status);}
+  const meta=await metaResp.json();
+  _ghSha=meta.sha;
+  // Fetch actual content via raw URL (no size limit, no base64)
+  const rawResp=await fetch(GH_RAW+"?t="+Date.now(),{headers:{Authorization:`token ${GH_TOKEN}`}});
+  console.log("ghGet raw status="+rawResp.status);
+  if(!rawResp.ok)throw new Error("GitHub raw read failed: "+rawResp.status);
+  const text=await rawResp.text();
+  return JSON.parse(text);
 }
 
 async function ghPut(payload){
