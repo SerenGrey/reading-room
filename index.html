@@ -162,7 +162,11 @@ select option{background:#fff}
 .next-banner-text{font-size:13px;color:var(--next);font-weight:600}
 .next-banner-sub{font-size:11px;color:#9a7aaa;margin-top:1px}
 
-/* Stats page */
+.next-order{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.next-pos{width:26px;height:26px;border-radius:50%;background:var(--next);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Inter',sans-serif}
+.next-arrows{display:flex;flex-direction:column;gap:1px}
+.next-arrow{background:none;border:1px solid var(--next-border);border-radius:4px;color:var(--next);font-size:10px;cursor:pointer;padding:1px 5px;line-height:1.4;font-family:'Inter',sans-serif}
+.next-arrow:hover{background:var(--next-bg)}
 .stats-page{padding:16px 14px 40px}
 .stat-section{margin-bottom:28px}
 .stat-section-title{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
@@ -494,11 +498,16 @@ function render(){
     return true;
   });
 
-  // On TBR tab, sort Up Next to top first
-  if(view==="tbr"){
+  // On Up Next tab, sort by nextOrder
+  if(view==="next"){
+    list.sort((a,b)=>(a.nextOrder||999)-(b.nextOrder||999));
+  }
+  // On TBR tab, sort Up Next to top first, then by nextOrder within Up Next
+  else if(view==="tbr"){
     list.sort((a,b)=>{
       const aNext=a.status==="Up Next"?0:1,bNext=b.status==="Up Next"?0:1;
       if(aNext!==bNext)return aNext-bNext;
+      if(a.status==="Up Next"&&b.status==="Up Next")return(a.nextOrder||999)-(b.nextOrder||999);
       return sortFn(a,b);
     });
   } else {
@@ -523,7 +532,7 @@ function render(){
     <div class="next-banner-sub">These are at the top of your list</div></div>
   </div>`:"";
 
-  main.innerHTML=banner+`<div id="card-grid" class="fup">${list.map(cardH).join("")}</div>`;
+  main.innerHTML=banner+`<div id="card-grid" class="fup">${list.map((s,i)=>cardH(s,view==="next"?i:null,list.length)).join("")}</div>`;
 }
 
 function sortFn(a,b){
@@ -534,15 +543,23 @@ function sortFn(a,b){
   return 0;
 }
 
-function cardH(s){
+function cardH(s,queuePos=null,queueLen=0){
   const ss=shelves.filter(sh=>(s.shelfIds||[]).includes(sh.id));
   const isNext=s.status==="Up Next";
   const tags=(s.tags||[]).slice(0,3).map(tagH).join("")+((s.tags||[]).length>3?tagH(`+${s.tags.length-3}`):"");
   const ptags=(s.presetTags||[]).slice(0,3).map(ptagH).join("");
   const chips=ss.slice(0,2).map(sh=>schipH(sh,true)).join("");
+  const queueControls=queuePos!==null?`<div class="next-order" onclick="event.stopPropagation()">
+    <div class="next-pos">${queuePos+1}</div>
+    <div class="next-arrows">
+      ${queuePos>0?`<button class="next-arrow" onclick="moveInQueue('${s.id}',-1)" title="Move up">▲</button>`:`<button class="next-arrow" style="opacity:.2;cursor:default">▲</button>`}
+      ${queuePos<queueLen-1?`<button class="next-arrow" onclick="moveInQueue('${s.id}',1)" title="Move down">▼</button>`:`<button class="next-arrow" style="opacity:.2;cursor:default">▼</button>`}
+    </div>
+  </div>`:"";
   return`<div class="card${isNext?" next-card":""}" onclick="openStory('${s.id}')">
   <div class="spine" style="background:${RCOL[s.rating]||"#aaa"}"></div>
   <div class="ci">
+    ${queueControls}
     <div class="ctop">
       <div class="cmeta">
         <div class="cbadges"><span onclick="event.stopPropagation()">${rb(s.rating)}</span>${isNext?'<span class="next-badge">UP NEXT</span>':""}${s.complete?'<span class="cb">COMPLETE</span>':""}${s.seriesName?`<span style="font-size:9px;font-weight:600;color:#7a6a3a;background:#f7f2e0;border:1px solid #e0d5a0;padding:2px 6px;border-radius:4px;letter-spacing:.5px">SERIES</span>`:""}</div>
@@ -558,7 +575,7 @@ function cardH(s){
     ${chips?`<div class="cchips">${chips}</div>`:""}
     <div class="cbot">
       <span class="cwc">${s.wordCount>0?fmt(s.wordCount)+" words":""}${s.chapters>0?" · "+s.chapters+" ch.":""}${s.dateStart||s.dateEnd?" · "+fmtDate(s.dateStart||"")+(s.dateEnd?"–"+fmtDate(s.dateEnd):"–"):""}</span>
-      ${starsH(s.myRating||0,true,s.id,"myRating")}
+      <div onclick="event.stopPropagation()">${starsH(s.myRating||0,true,s.id,"myRating")}</div>
     </div>
   </div>
 </div>`;
@@ -853,7 +870,32 @@ function renderShelves(main){
 
 // ── Events ─────────────────────────────────────────────────────────────────
 function sw(v){view=v;activeShelf=null;render();}
-function changeStatus(sel){const s=stories.find(x=>x.id===sel.dataset.id);if(s){s.status=sel.value;save();renderHeader();}}
+function moveInQueue(id, dir){
+  // Get current Up Next list sorted by nextOrder
+  const queue=stories.filter(s=>s.status==="Up Next").sort((a,b)=>(a.nextOrder||999)-(b.nextOrder||999));
+  const idx=queue.findIndex(s=>s.id===id);
+  if(idx===-1)return;
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=queue.length)return;
+  // Swap nextOrder values
+  const a=stories.find(s=>s.id===queue[idx].id);
+  const b=stories.find(s=>s.id===queue[swapIdx].id);
+  const tmp=a.nextOrder??idx;
+  a.nextOrder=b.nextOrder??swapIdx;
+  b.nextOrder=tmp;
+  save();render();
+}
+
+function changeStatus(sel){
+  const s=stories.find(x=>x.id===sel.dataset.id);if(!s)return;
+  s.status=sel.value;
+  if(sel.value==="Up Next"&&!s.nextOrder){
+    // Put at end of queue
+    const maxOrder=Math.max(0,...stories.filter(x=>x.status==="Up Next"&&x.nextOrder).map(x=>x.nextOrder));
+    s.nextOrder=maxOrder+1;
+  }
+  save();renderHeader();
+}
 function starClick(e){
   const v=parseInt(e.target.dataset.v);if(!v)return;
   const el=e.currentTarget;
