@@ -550,11 +550,13 @@ function cardH(s,queuePos=null,queueLen=0){
   const ptags=(s.presetTags||[]).slice(0,3).map(ptagH).join("");
   const chips=ss.slice(0,2).map(sh=>schipH(sh,true)).join("");
   const queueControls=queuePos!==null?`<div class="next-order" onclick="event.stopPropagation()">
-    <div class="next-pos">${queuePos+1}</div>
-    <div class="next-arrows">
-      ${queuePos>0?`<button class="next-arrow" onclick="moveInQueue('${s.id}',-1)" title="Move up">▲</button>`:`<button class="next-arrow" style="opacity:.2;cursor:default">▲</button>`}
-      ${queuePos<queueLen-1?`<button class="next-arrow" onclick="moveInQueue('${s.id}',1)" title="Move down">▼</button>`:`<button class="next-arrow" style="opacity:.2;cursor:default">▼</button>`}
-    </div>
+    <label style="font-size:11px;color:var(--next);font-weight:600;margin-right:4px">#</label>
+    <input type="number" min="1" max="${queueLen}" value="${queuePos+1}"
+      style="width:44px;border:1px solid var(--next-border);border-radius:6px;background:var(--next-bg);color:var(--next);font-weight:700;font-size:13px;padding:2px 6px;outline:none;text-align:center"
+      onclick="event.stopPropagation()"
+      onchange="setQueuePos('${s.id}',this.value,${queueLen})"
+      onblur="setQueuePos('${s.id}',this.value,${queueLen})">
+    <span style="font-size:11px;color:var(--faint);margin-left:4px">of ${queueLen}</span>
   </div>`:"";
   return`<div class="card${isNext?" next-card":""}" onclick="openStory('${s.id}')">
   <div class="spine" style="background:${RCOL[s.rating]||"#aaa"}"></div>
@@ -870,19 +872,22 @@ function renderShelves(main){
 
 // ── Events ─────────────────────────────────────────────────────────────────
 function sw(v){view=v;activeShelf=null;render();}
-function moveInQueue(id, dir){
-  // Get current Up Next list sorted by nextOrder
+function setQueuePos(id, newPos, queueLen){
+  newPos=Math.max(1,Math.min(queueLen,parseInt(newPos)||1));
+  // Get sorted queue
   const queue=stories.filter(s=>s.status==="Up Next").sort((a,b)=>(a.nextOrder||999)-(b.nextOrder||999));
-  const idx=queue.findIndex(s=>s.id===id);
-  if(idx===-1)return;
-  const swapIdx=idx+dir;
-  if(swapIdx<0||swapIdx>=queue.length)return;
-  // Swap nextOrder values
-  const a=stories.find(s=>s.id===queue[idx].id);
-  const b=stories.find(s=>s.id===queue[swapIdx].id);
-  const tmp=a.nextOrder??idx;
-  a.nextOrder=b.nextOrder??swapIdx;
-  b.nextOrder=tmp;
+  const oldIdx=queue.findIndex(s=>s.id===id);
+  if(oldIdx===-1)return;
+  const newIdx=newPos-1;
+  if(oldIdx===newIdx)return;
+  // Remove from old position and insert at new position
+  const [moved]=queue.splice(oldIdx,1);
+  queue.splice(newIdx,0,moved);
+  // Reassign clean sequential nextOrder values
+  queue.forEach((s,i)=>{
+    const story=stories.find(x=>x.id===s.id);
+    if(story)story.nextOrder=i+1;
+  });
   save();render();
 }
 
