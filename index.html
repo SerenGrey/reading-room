@@ -213,6 +213,7 @@ a{color:#3a7a8a;text-decoration:none}
     <select id="filter-rating"><option value="All">All Ratings</option><option>G</option><option>T</option><option>M</option><option>E</option></select>
     <select id="sort-by">
       <option value="dateAdded">Recently Added</option>
+      <option value="dateEnd">Date Finished</option>
       <option value="title">Title A–Z</option>
       <option value="myRating">My Rating</option>
       <option value="wordCount">Word Count</option>
@@ -537,6 +538,12 @@ function render(){
 
 function sortFn(a,b){
   if(sortBy==="dateAdded")return new Date(b.dateAdded)-new Date(a.dateAdded);
+  if(sortBy==="dateEnd"){
+    if(!a.dateEnd&&!b.dateEnd)return 0;
+    if(!a.dateEnd)return 1;
+    if(!b.dateEnd)return -1;
+    return new Date(b.dateEnd)-new Date(a.dateEnd);
+  }
   if(sortBy==="title")return(a.title||"").localeCompare(b.title||"");
   if(sortBy==="myRating")return(b.myRating||0)-(a.myRating||0);
   if(sortBy==="wordCount")return(b.wordCount||0)-(a.wordCount||0);
