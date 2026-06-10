@@ -79,6 +79,7 @@ select option{background:#fff}
 .rb{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.8px;font-family:monospace}
 .cb{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent)}
 .next-badge{font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--next);background:var(--next-bg);padding:2px 6px;border-radius:4px;border:1px solid var(--next-border)}
+.wip-badge{font-size:9px;font-weight:700;letter-spacing:.8px;color:#3a6a9a;background:#e5eef7;padding:2px 6px;border-radius:4px;border:1px solid #b8d0e8}
 .tag{background:#eef6ee;color:#4a7a4a;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--border);white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
 .tag:hover,.tag:active{background:#d8edda;border-color:#8aba8a}
 .ptag{background:#e8eef8;color:#3a5a8a;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid #c0d0e8;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
@@ -228,10 +229,10 @@ const RCOL={G:"#5a8f5a",T:"#3a7a8a",M:"#b06070",E:"#a0522d"};
 const RBG={G:"#ddf0dd",T:"#d6eff4",M:"#f5dde2",E:"#f5e0d5"};
 const STCOL={ship:"#8a5aa0",mood:"#3a7a8a",theme:"#b06050",fandom:"#5a8f5a",custom:"#7a7a8a"};
 const STBG={ship:"#f2ebf7",mood:"#e5f4f7",theme:"#f9ebe8",fandom:"#e8f5e8",custom:"#f0f0f5"};
-const SCOLORS={Unread:"#7a8f7a",Reading:"#3a7a8a",Read:"#3a7d44","On Hold":"#9a7a3a",Dropped:"#a05060","Up Next":"#7a3a8a"};
-const SBGS={Unread:"#f0f5f0",Reading:"#e5f4f7",Read:"#e8f5e8","On Hold":"#f7f2e5",Dropped:"#f7e8ea","Up Next":"#f4edf7"};
+const SCOLORS={Unread:"#7a8f7a",Reading:"#3a7a8a",Read:"#3a7d44","Up Next":"#7a3a8a","On Hold":"#9a7a3a","Watching WIP":"#3a6a9a",Dropped:"#a05060"};
+const SBGS={Unread:"#f0f5f0",Reading:"#e5f4f7",Read:"#e8f5e8","Up Next":"#f4edf7","On Hold":"#f7f2e5","Watching WIP":"#e5eef7",Dropped:"#f7e8ea"};
 const SHELF_TYPES=["ship","mood","theme","fandom","custom"];
-const STATUSES=["Unread","Up Next","Reading","Read","On Hold","Dropped"];
+const STATUSES=["Unread","Up Next","Reading","Read","On Hold","Watching WIP","Dropped"];
 
 // Pre-set fandoms (user can still type custom)
 const PRESET_FANDOMS=["Harry Potter","Buffy the Vampire Slayer"];
@@ -445,11 +446,13 @@ function renderHeader(){
   document.getElementById("hdr-stats").innerHTML=
     `${total} stories · <span style="color:#3a7d44">${fmt(wordsRead)} read</span> · <span style="color:#3a7a8a">${fmt(wordsTBR)} TBR</span> · <span style="color:var(--faint)">${fmt(wordsTotal)} total</span>`;
 
+  const wipStories=stories.filter(s=>s.status==="Watching WIP");
   const TABS=[
     {id:"library",label:"Library",n:total},
     {id:"reading",label:"Reading",n:readingStories.length,cls:""},
     {id:"next",label:"Up Next",n:nextStories.length,cls:"next-tab"},
     {id:"tbr",label:"TBR",n:tbrStories.length},
+    {id:"wip",label:"Watching WIP",n:wipStories.length},
     {id:"read",label:"Read",n:readStories.length},
     {id:"shelves",label:"Shelves",n:shelves.length},
     {id:"stats",label:"📊 Stats",n:""},
@@ -480,6 +483,7 @@ function render(){
     if(view==="reading") return s.status==="Reading";
     if(view==="next")    return s.status==="Up Next";
     if(view==="tbr")     return ["Unread","Up Next","On Hold"].includes(s.status);
+    if(view==="wip")     return s.status==="Watching WIP";
     if(view==="read")    return s.status==="Read";
     return true;
   };
@@ -519,6 +523,7 @@ function render(){
     main.innerHTML=`<div class="empty">${
       view==="next"?"No stories marked as Up Next.<br><br>Change a story's status to <strong>Up Next</strong> to add it here.":
       view==="reading"?"Nothing currently in progress.":
+      view==="wip"?"No stories marked as Watching WIP.<br><br>Use this status for fics that are still being posted — ones you're subscribed to and waiting to finish before reading.":
       stories.length===0?"Your catalogue is empty — tap + Add to get started!":
       "No stories match your filters."
     }</div>`;
@@ -571,7 +576,7 @@ function cardH(s,queuePos=null,queueLen=0){
     ${queueControls}
     <div class="ctop">
       <div class="cmeta">
-        <div class="cbadges"><span onclick="event.stopPropagation()">${rb(s.rating)}</span>${isNext?'<span class="next-badge">UP NEXT</span>':""}${s.complete?'<span class="cb">COMPLETE</span>':""}${s.seriesName?`<span style="font-size:9px;font-weight:600;color:#7a6a3a;background:#f7f2e0;border:1px solid #e0d5a0;padding:2px 6px;border-radius:4px;letter-spacing:.5px">SERIES</span>`:""}</div>
+        <div class="cbadges"><span onclick="event.stopPropagation()">${rb(s.rating)}</span>${isNext?'<span class="next-badge">UP NEXT</span>':""}${s.status==="Watching WIP"?'<span class="wip-badge">WATCHING WIP</span>':""}${s.complete?'<span class="cb">COMPLETE</span>':""}${s.seriesName?`<span style="font-size:9px;font-weight:600;color:#7a6a3a;background:#f7f2e0;border:1px solid #e0d5a0;padding:2px 6px;border-radius:4px;letter-spacing:.5px">SERIES</span>`:""}</div>
         <div class="ctitle">${esc(s.title)}</div>
         <div class="cauthor">by <span onclick="filterByAuthor(event,'${esc(s.author)}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${esc(s.author)}</span>${s.fandom?" · "+esc(s.fandom):""}</div>
         ${s.ship?`<div style="margin-top:3px" onclick="event.stopPropagation()"><span onclick="filterByTag(event,'${esc(s.ship)}')" class="ptag" style="background:#fff0f5;color:#9a3a5a;border-color:#e8b0c8;cursor:pointer;transition:background .15s">♥ ${esc(s.ship)}</span></div>`:""}
